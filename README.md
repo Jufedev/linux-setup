@@ -11,15 +11,20 @@ Instalación automatizada de Arch Linux con GNOME mínimo, sin bloatware, config
 ```
 archlinux-setup/
 ├── scripts/
-│   ├── install.sh              # Instalación base (UEFI/GPT)
-│   └── postinstall.sh          # Setup visual macOS + apps + performance
+│   ├── install.sh                  # Instalación base (UEFI/GPT)
+│   ├── postinstall.sh              # Setup visual macOS + apps + performance
+│   ├── refresh.sh                  # Refresca configs sin reinstalar
+│   └── gdm-wallpaper-update.sh    # Wallpaper dinámico del GDM por hora
 ├── configs/
-│   ├── kitty/kitty.conf        # Terminal con Catppuccin Mocha
-│   ├── starship/starship.toml  # Prompt minimalista con iconos
+│   ├── kitty/kitty.conf            # Terminal con Catppuccin Mocha
+│   ├── starship/starship.toml      # Prompt minimalista con iconos
+│   ├── ulauncher/macos-tahoe/      # Tema custom Ulauncher (Spotlight)
 │   └── gnome/
-│       ├── gnome-macos.dconf   # Configuración GNOME completa
-│       ├── dock-magnify/       # Extensión custom: fish-eye en el dock
-│       └── icons/              # Íconos custom (app grid 9 puntos)
+│       ├── gnome-macos.dconf       # Configuración GNOME completa
+│       ├── calendar-tweaks/        # Extensión custom: colapsa mensaje list del calendario
+│       ├── dock-magnify/           # Extensión custom: fish-eye en el dock
+│       ├── icons/                  # Íconos custom (app grid 9 puntos)
+│       └── panel-tweaks/           # Extensión custom: reorganiza el panel superior
 └── README.md
 ```
 
@@ -93,10 +98,10 @@ O usar flags directamente:
 | `--all` | Todo en orden (recomendado para instalación limpia) |
 | `--gnome` | GNOME mínimo + GDM |
 | `--theme` | Tema WhiteSur (GTK + iconos + cursores + libadwaita) |
-| `--extensions` | Extensiones GNOME + extensión dock-magnify custom |
+| `--extensions` | Extensiones GNOME + extensiones custom (calendar-tweaks, dock-magnify, panel-tweaks) |
 | `--fonts` | Inter + JetBrainsMono Nerd Font |
 | `--terminal` | Kitty + Zsh + Starship + plugins |
-| `--spotlight` | Ulauncher |
+| `--spotlight` | Ulauncher + tema macOS Tahoe Dark |
 | `--apps` | Flameshot, Chrome, Edge, ufw, Podman + Distrobox |
 | `--tweaks` | Aplica toda la configuración visual desde `gnome-macos.dconf` |
 | `--wallpapers` | Wallpapers dinámicos que cambian según la hora (incluido en `--all`) |
@@ -160,10 +165,8 @@ bash scripts/postinstall.sh --cachyos
 
 ## Paso 5 — Ajustes manuales
 
-1. **Activar extensiones** → abrir GNOME Extensions y habilitar las instaladas
-2. **Seleccionar wallpaper dinámico** → Configuración → Fondo → elegir un wallpaper WhiteSur (cambia solo por hora)
-3. **GDM** → correr `bash scripts/postinstall.sh --gdm` (requiere sudo)
-4. **Ulauncher hotkey** → abrir Preferences y configurar Alt+Space
+1. **Seleccionar wallpaper dinámico** → Configuración → Fondo → elegir un wallpaper WhiteSur (cambia solo por hora)
+2. **GDM** → correr `bash scripts/postinstall.sh --gdm` (requiere sudo)
 
 ---
 
@@ -186,17 +189,19 @@ Console, ni ningún juego
 
 | Extensión | Función |
 |-----------|---------|
-| Dash to Dock | Dock estilo macOS siempre visible |
-| Blur My Shell | Blur en el dock y panel |
-| User Themes | Temas de shell custom |
 | AppIndicator | Soporte para iconos en bandeja del sistema |
-| Vitals | Monitor de recursos en la barra (equivalente a iStatMenus) |
-| Just Perfection | Ajustes finos de la interfaz |
+| Blur My Shell | Blur en el dock y panel |
+| **calendar-tweaks** *(custom)* | **Colapsa el message list del calendario para un panel más limpio** |
 | Clipboard Indicator | Historial del portapapeles |
-| HideTopBar | Oculta la barra superior automáticamente |
+| Dash to Dock | Dock estilo macOS siempre visible |
 | **dock-magnify** *(custom)* | **Fish-eye en el dock al pasar el cursor** |
+| HideTopBar | Oculta la barra superior automáticamente |
+| Just Perfection | Ajustes finos de la interfaz |
+| **panel-tweaks** *(custom)* | **Reorganiza el panel: quick settings izquierda con ícono Arch, Vitals+clipboard centro, fecha derecha** |
+| User Themes | Temas de shell custom |
+| Vitals | Monitor de recursos en la barra (equivalente a iStatMenus) |
 
-La extensión `dock-magnify` está incluida en el repo (`configs/gnome/dock-magnify/`) y se instala automáticamente con `--extensions`. No requiere ningún paso extra.
+Las extensiones custom están incluidas en el repo (`configs/gnome/`) y se instalan automáticamente con `--extensions`. No requieren ningún paso extra.
 
 ### Equivalencias macOS → Linux
 
@@ -232,16 +237,3 @@ seahorse             — gestor de contraseñas/llaves
 simple-scan          — escaneo de documentos
 ```
 
----
-
-## Hardware compatible
-
-- Ryzen 7 5700G
-
----
-
-## TODO
-
-- [ ] Exportar versiones exactas de paquetes instalados
-- [ ] Dock magnify: modo sin hover (magnificación always-on estilo macOS)
-- [ ] Wallpaper del GDM sincronizado con el wallpaper dinámico del desktop
