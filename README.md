@@ -163,7 +163,118 @@ bash scripts/postinstall.sh --cachyos
 
 ---
 
-## Paso 5 — Ajustes manuales
+## Paso 5 — Entornos de desarrollo con Distrobox (opcional)
+
+Distrobox crea contenedores que se sienten nativos (acceden a tu display, red, home, clipboard) pero están completamente aislados del sistema base. Tu Arch con GNOME + WhiteSur queda limpio como capa visual, todo el trabajo pesado vive dentro de contenedores.
+
+```
+┌─────────────────────────────────────────────────┐
+│  Arch Linux (host)                              │
+│  Solo GNOME + WhiteSur + Kitty + Ulauncher      │
+│  Nada de herramientas de desarrollo             │
+│                                                 │
+│  ┌──────────────┐  ┌──────────────────────────┐ │
+│  │ dev          │  │ dev-experimental         │ │
+│  │              │  │                          │ │
+│  │ Go, Python   │  │ Mismo stack pero para    │ │
+│  │ Terraform    │  │ probar cosas riesgosas   │ │
+│  │ Node, Bun    │  │                          │ │
+│  │ AWS CLI      │  │ Si explota, lo borras    │ │
+│  │ Claude Code  │  │ y creas otro             │ │
+│  └──────────────┘  └──────────────────────────┘ │
+└─────────────────────────────────────────────────┘
+```
+
+> Podman y Distrobox se instalan automáticamente con `--apps`. Este paso explica cómo usarlos.
+
+### Uso básico
+
+```bash
+# Crear un contenedor basado en Arch
+distrobox create --name dev --image archlinux:latest
+
+# Entrar
+distrobox enter dev
+
+# Adentro instalas lo que quieras sin miedo
+sudo pacman -S go python terraform nodejs rust aws-cli-v2
+```
+
+### Destruir y recrear
+
+Todo lo que instales dentro del contenedor muere con él:
+
+```bash
+distrobox stop dev
+distrobox rm dev
+distrobox create --name dev --image archlinux:latest
+```
+
+### Imagen base personalizada (concepto AMI local)
+
+En vez de instalar manualmente cada vez, definís una imagen con todo tu stack. Crear un `Containerfile`:
+
+```dockerfile
+FROM archlinux:latest
+
+RUN pacman -Syu --noconfirm
+
+RUN pacman -S --noconfirm \
+    go python python-pip nodejs npm rust \
+    terraform aws-cli-v2 git vim
+
+# Bun
+RUN curl -fsSL https://bun.sh/install | bash
+
+# Claude Code
+RUN npm install -g @anthropic-ai/claude-code
+```
+
+Construir y crear contenedores a partir de la imagen:
+
+```bash
+# Construir
+podman build -t dev-env .
+
+# Contenedor estable para trabajo diario
+distrobox create --name dev --image localhost/dev-env
+
+# Contenedor experimental para probar cosas
+distrobox create --name dev-experimental --image localhost/dev-env
+```
+
+### Integración con el host
+
+| Acción | Comando |
+|---|---|
+| Exportar binario al host | `distrobox-export --bin /usr/bin/go --export-path ~/.local/bin` |
+| Exportar app al menú GNOME | `distrobox-export --app code` |
+| Home separado por contenedor | `distrobox create --name dev --image localhost/dev-env --home ~/distrobox-homes/dev` |
+
+Por defecto Distrobox comparte tu `$HOME` con el contenedor — tus archivos, configs de git, SSH keys, todo disponible sin copiar nada.
+
+### Actualizar la imagen base
+
+1. Editar el `Containerfile`
+2. Reconstruir: `podman build -t dev-env .`
+3. Recrear contenedores: `distrobox stop dev && distrobox rm dev && distrobox create --name dev --image localhost/dev-env`
+
+### Referencia rápida
+
+| Acción | Comando |
+|---|---|
+| Crear contenedor | `distrobox create --name dev --image archlinux:latest` |
+| Entrar | `distrobox enter dev` |
+| Salir | `exit` |
+| Listar | `distrobox list` |
+| Parar | `distrobox stop dev` |
+| Eliminar | `distrobox rm dev` |
+| Construir imagen | `podman build -t dev-env .` |
+| Crear desde imagen | `distrobox create --name dev --image localhost/dev-env` |
+
+---
+
+## Paso 6 — Ajustes manuales
 
 1. **Seleccionar wallpaper dinámico** → Configuración → Fondo → elegir un wallpaper WhiteSur (cambia solo por hora)
 2. **GDM** → correr `bash scripts/postinstall.sh --gdm` (requiere sudo)
