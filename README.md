@@ -1,10 +1,10 @@
 # Arch Linux — Setup estilo macOS (mínimo)
 
-Instalación automatizada de Arch Linux con GNOME mínimo, sin bloatware, configurado para verse como macOS. Incluye optimizaciones de performance opcionales via CachyOS.
+Instalación automatizada de Arch Linux con GNOME mínimo, sin bloatware, configurado para verse como macOS. Incluye optimizaciones de performance via CachyOS, integradas en la instalación principal.
 
 ## Stack
 
-**Arch Linux + GNOME (mínimo)** · WhiteSur theme · Kitty + Zsh + Starship · Wallpapers dinámicos · CachyOS (opcional)
+**Arch Linux + GNOME (mínimo)** · WhiteSur theme · Kitty + Zsh + Starship · Wallpapers dinámicos · CachyOS (kernel BORE + repos optimizados)
 
 ## Estructura
 
@@ -14,6 +14,7 @@ archlinux-setup/
 │   ├── install.sh                  # Instalación base (UEFI/GPT)
 │   ├── postinstall.sh              # Setup visual macOS + apps + performance
 │   ├── refresh.sh                  # Refresca configs sin reinstalar
+│   ├── ssh-github.sh               # Genera llave SSH para push a GitHub (sin tokens)
 │   └── gdm-wallpaper-update.sh    # Wallpaper dinámico del GDM por hora
 ├── configs/
 │   ├── kitty/kitty.conf            # Terminal con Catppuccin Mocha
@@ -61,6 +62,8 @@ El script se encarga de todo automáticamente:
 - Te pide los datos de forma interactiva (disco, hostname, usuario, timezone)
 - Muestra los discos disponibles y un resumen antes de confirmar
 - Particiona (GPT), formatea, instala el sistema base y configura GRUB
+- **Detecta tu CPU** e instala el microcode correcto (`amd-ucode`/`intel-ucode`) — esencial en baremetal, GRUB lo carga en el boot
+- Instala `mesa` + `linux-headers` para tener gráficos y soporte de módulos desde el primer arranque
 
 4. Al terminar:
 
@@ -83,7 +86,11 @@ cd ~/archlinux-setup
 bash scripts/postinstall.sh --all
 ```
 
-Esto instala todo de una vez: GNOME, tema, extensiones, fuentes, terminal, Ulauncher, apps y configuración visual.
+Esto instala todo de una vez, **en este orden**: CachyOS (repos + kernel) → hardware (microcode + drivers de GPU) → GNOME → tema → extensiones → fuentes → terminal → Ulauncher → apps → wallpapers → ajustes visuales.
+
+CachyOS va primero a propósito: así GNOME, mesa y el resto se bajan ya compilados para tu CPU desde los repos optimizados.
+
+> **Resiliencia:** si un paquete falla, el setup ya **no se aborta** — reintenta ese paquete solo, lo registra y sigue con el resto. Al final te muestra un resumen de qué falló. El log queda en `~/.local/state/arch-macos-setup.log` (persiste entre reinicios).
 
 Para elegir módulos individuales, ejecutar sin argumentos para el menú interactivo:
 
@@ -106,7 +113,8 @@ O usar flags directamente:
 | `--tweaks` | Aplica toda la configuración visual desde `gnome-macos.dconf` |
 | `--wallpapers` | Wallpapers dinámicos que cambian según la hora (incluido en `--all`) |
 | `--gdm` | Login GDM estilo macOS — solo el ⚙ de apagado visible *(ver Paso 3)* |
-| `--cachyos` | Repos optimizados + kernel BORE/EEVDF *(ver Paso 4)* |
+| `--cachyos` | Repos optimizados + kernel BORE/EEVDF — **ya incluido en `--all`** *(ver Paso 4)* |
+| `--hardware` | Microcode del CPU + drivers de GPU auto-detectados — **ya incluido en `--all`** |
 
 > `--tweaks` aplica la configuración de GNOME (tema, fuentes, extensiones, touchpad, layout). Ejecutarlo siempre como último paso, o después de instalar módulos individuales.
 >
@@ -139,9 +147,11 @@ sudo systemctl restart gdm
 
 ---
 
-## Paso 4 — Performance con CachyOS (opcional)
+## Paso 4 — Performance con CachyOS (incluido en `--all`)
 
-Este paso agrega los repositorios de CachyOS a tu instalación de Arch base, sin reemplazarla. Obtenés paquetes del sistema compilados con instrucciones optimizadas para tu CPU y un kernel con mejor responsividad de desktop.
+CachyOS ahora es el **primer módulo** de `--all`: se configura antes que nada para que GNOME, mesa y el resto de los paquetes se instalen ya compilados con instrucciones optimizadas para tu CPU. Agrega los repos a tu Arch base sin reemplazarla, más un kernel con mejor responsividad de desktop.
+
+Para correrlo de forma aislada (por ejemplo, en un sistema ya instalado):
 
 ```bash
 bash scripts/postinstall.sh --cachyos
@@ -274,7 +284,34 @@ Por defecto Distrobox comparte tu `$HOME` con el contenedor — tus archivos, co
 
 ---
 
-## Paso 6 — Ajustes manuales
+## Paso 6 — SSH para GitHub (sin tokens)
+
+Autenticá `git push` con una llave SSH `ed25519` en vez de andar manejando tokens. Como Distrobox comparte tu `$HOME`, la llave en `~/.ssh` queda disponible dentro de **todos** tus contenedores sin copiar nada.
+
+```bash
+bash scripts/ssh-github.sh
+```
+
+Qué hace:
+1. Genera `~/.ssh/github_ed25519` (no sobreescribe si ya existe)
+2. Agrega un bloque `Host github.com` a `~/.ssh/config` apuntando a esa llave
+3. Carga la llave en `ssh-agent` y copia la **pública** al portapapeles
+4. Te abre el flujo para pegarla en GitHub → `https://github.com/settings/ssh/new`
+5. Ofrece cambiar el `origin` de este repo de HTTPS a SSH y verifica la conexión
+
+Opciones:
+
+| Flag | Efecto |
+|------|--------|
+| `--email <correo>` | Comentario de la llave (default: `usuario@hostname`) |
+| `--passphrase` | Pide passphrase (más seguro, pero requiere `ssh-agent` en cada distrobox) |
+| `--switch-remote` / `--no-switch-remote` | Cambia (o no) el remote a SSH sin preguntar |
+
+> Por defecto la llave se genera **sin passphrase** para que el push sea sin fricción y funcione directo dentro de los contenedores. Si preferís una passphrase, usá `--passphrase` o agregala después con `ssh-keygen -p -f ~/.ssh/github_ed25519`.
+
+---
+
+## Paso 7 — Ajustes manuales
 
 1. **Seleccionar wallpaper dinámico** → Configuración → Fondo → elegir un wallpaper WhiteSur (cambia solo por hora)
 2. **GDM** → correr `bash scripts/postinstall.sh --gdm` (requiere sudo)
