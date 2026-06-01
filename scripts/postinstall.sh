@@ -2,7 +2,7 @@
 # ============================================================================
 # Arch Linux — Setup estilo macOS (GNOME)
 # Ejecutar como usuario normal después del primer boot
-# Uso: bash postinstall.sh [--all | --gnome | --theme | --extensions | --fonts | --terminal | --spotlight | --apps | --tweaks | --wallpapers | --gdm | --cachyos]
+# Uso: bash postinstall.sh [--all | --gnome | --theme | --extensions | --fonts | --terminal | --spotlight | --apps | --tweaks | --wallpapers | --gdm | --cachyos | --hardware]
 # Sin argumentos = menú interactivo
 # ============================================================================
 set -euo pipefail
@@ -17,7 +17,15 @@ step()  { echo -e "\n${C}━━━ $1 ━━━${NC}\n"; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIGS_DIR="${SCRIPT_DIR}/../configs"
-LOG_FILE="/tmp/arch-macos-setup.log"
+
+# Log persistente (sobrevive reinicios — /tmp se borra al rebootear)
+LOG_DIR="${XDG_STATE_HOME:-$HOME/.local/state}"
+mkdir -p "$LOG_DIR"
+LOG_FILE="${LOG_DIR}/arch-macos-setup.log"
+
+# Tracking de fallos: un paquete o módulo que falla NO debe abortar todo el setup
+FAILED_PKGS=()
+FAILED_MODULES=()
 
 [[ ! -d "$CONFIGS_DIR" ]] && fail "Directorio de configs no encontrado: $CONFIGS_DIR"
 
@@ -27,14 +35,73 @@ sudo pacman -Sy --noconfirm &>/dev/null
 ok "Base de datos sincronizada"
 
 # ── Helpers ────────────────────────────────────────────────────────────────
+# Estrategia: intentar el batch (rápido, resuelve dependencias juntas). Si falla,
+# reintentar paquete por paquete para que UN paquete roto no arrastre al resto.
+# Los fallos se registran en FAILED_PKGS y el script CONTINÚA.
 pac_install() {
     info "Instalando (pacman): $*"
-    sudo pacman -S --noconfirm --needed "$@" 2>&1 | tee -a "$LOG_FILE"
+    if sudo pacman -S --noconfirm --needed "$@" 2>&1 | tee -a "$LOG_FILE"; then
+        return 0
+    fi
+    warn "Batch de pacman falló — reintentando uno por uno..."
+    local pkg
+    for pkg in "$@"; do
+        if ! sudo pacman -S --noconfirm --needed "$pkg" 2>&1 | tee -a "$LOG_FILE"; then
+            warn "Paquete falló (pacman): $pkg"
+            FAILED_PKGS+=("$pkg")
+        fi
+    done
 }
 
 aur_install() {
     info "Instalando (AUR): $*"
-    yay -S --noconfirm --needed "$@" 2>&1 | tee -a "$LOG_FILE"
+    if yay -S --noconfirm --needed "$@" 2>&1 | tee -a "$LOG_FILE"; then
+        return 0
+    fi
+    warn "Batch de AUR falló — reintentando uno por uno..."
+    local pkg
+    for pkg in "$@"; do
+        if ! yay -S --noconfirm --needed "$pkg" 2>&1 | tee -a "$LOG_FILE"; then
+            warn "Paquete falló (AUR): $pkg"
+            FAILED_PKGS+=("$pkg")
+        fi
+    done
+}
+
+# Ejecuta un módulo sin que su fallo aborte el resto del setup.
+# El 'if' suprime 'set -e' dentro del módulo y captura su estado final.
+run_module() {
+    local label="$1"; shift
+    step "▶ $label"
+    if "$@"; then
+        ok "Módulo OK: $label"
+    else
+        warn "Módulo con errores: $label — continúo con el resto"
+        FAILED_MODULES+=("$label")
+    fi
+}
+
+print_summary() {
+    echo ""
+    echo -e "${G}╔══════════════════════════════════════════════════════╗${NC}"
+    echo -e "${G}║  Setup finalizado                                    ║${NC}"
+    echo -e "${G}╚══════════════════════════════════════════════════════╝${NC}"
+
+    if [[ ${#FAILED_MODULES[@]} -eq 0 && ${#FAILED_PKGS[@]} -eq 0 ]]; then
+        ok "Todos los módulos y paquetes se instalaron sin errores"
+    else
+        [[ ${#FAILED_MODULES[@]} -gt 0 ]] && warn "Módulos con errores: ${FAILED_MODULES[*]}"
+        [[ ${#FAILED_PKGS[@]} -gt 0 ]]    && warn "Paquetes que fallaron: ${FAILED_PKGS[*]}"
+        echo "  Log completo: $LOG_FILE"
+        echo "  Reintentá un módulo puntual con: bash postinstall.sh --<modulo>"
+    fi
+
+    echo ""
+    echo -e "${G}Pasos finales:${NC}"
+    echo "  • Reiniciá para bootear el kernel CachyOS (elegilo en GRUB si no es el default)"
+    echo "  • Cerrá y reabrí sesión para ver el tema y las extensiones"
+    echo "  • Parcheá el login estilo macOS con: bash postinstall.sh --gdm"
+    echo ""
 }
 
 ensure_yay() {
@@ -728,6 +795,47 @@ apply_gdm() {
     warn "Corré: sudo systemctl restart gdm"
 }
 
+install_hardware() {
+    step "Hardware — microcode del CPU + drivers de GPU"
+
+    # ── Microcode (crítico en baremetal — no aplica en VMs) ──
+    local ucode=""
+    if grep -q "AuthenticAMD" /proc/cpuinfo; then
+        ucode="amd-ucode"
+    elif grep -q "GenuineIntel" /proc/cpuinfo; then
+        ucode="intel-ucode"
+    fi
+    if [[ -n "$ucode" ]]; then
+        pac_install "$ucode"
+    else
+        warn "No se detectó vendor de CPU — sin microcode"
+    fi
+
+    # ── Drivers de GPU (userspace) según el hardware detectado ──
+    command -v lspci &>/dev/null || pac_install pciutils
+
+    local gpu_pkgs=""
+    if lspci 2>/dev/null | grep -E -qi 'amd|ati'; then
+        gpu_pkgs="mesa vulkan-radeon libva-mesa-driver mesa-vdpau"
+        info "GPU AMD detectada — instalando drivers RADV/VAAPI/VDPAU"
+    elif lspci 2>/dev/null | grep -qi 'intel.*graphics\|intel.*display'; then
+        gpu_pkgs="mesa vulkan-intel intel-media-driver"
+        info "GPU Intel detectada — instalando drivers ANV/VAAPI"
+    elif lspci 2>/dev/null | grep -qi 'nvidia'; then
+        warn "GPU NVIDIA detectada — NO instalo drivers automáticamente"
+        warn "Instalalos a mano (nvidia-open-dkms + nvidia-utils) — requieren config de kernel/Wayland"
+    fi
+    [[ -n "$gpu_pkgs" ]] && pac_install $gpu_pkgs
+
+    # ── Regenerar GRUB para que cargue el microcode ──
+    if [[ -n "$ucode" ]] && command -v grub-mkconfig &>/dev/null; then
+        info "Regenerando GRUB para cargar el microcode..."
+        sudo grub-mkconfig -o /boot/grub/grub.cfg 2>&1 | tee -a "$LOG_FILE"
+    fi
+
+    ok "Hardware configurado (microcode + drivers de GPU)"
+}
+
 install_cachyos_repos() {
     step "CachyOS — Repos optimizados + kernel BORE/EEVDF"
 
@@ -772,28 +880,23 @@ install_cachyos_repos() {
 
 run_all() {
     ensure_yay
-    install_gnome
-    install_theme
-    install_extensions
-    install_fonts
-    install_terminal
-    install_spotlight
-    install_apps
-    install_wallpapers
-    apply_tweaks
 
-    echo ""
-    echo -e "${G}╔══════════════════════════════════════════════════════╗${NC}"
-    echo -e "${G}║  ✓ Setup completo — reinicia la sesión para        ║${NC}"
-    echo -e "${G}║    ver todos los cambios                            ║${NC}"
-    echo -e "${G}╚══════════════════════════════════════════════════════╝${NC}"
-    echo ""
-    echo "Post-setup manual:"
-    echo "  • Activar extensiones en GNOME Extensions"
-    echo "  • Parchear GDM: cd /usr/share/themes/WhiteSur-Light && sudo ./tweaks.sh -g"
-    echo "  • Configurar Ulauncher hotkey (Alt+Space)"
-    echo "  • Descargar wallpapers macOS y aplicarlos"
-    echo ""
+    # CachyOS PRIMERO: agrega los repos optimizados (x86-64-v3/v4) antes de instalar
+    # nada, así GNOME, mesa y el resto se bajan ya compilados para tu CPU.
+    # El kernel BORE/EEVDF queda instalado y se activa al reiniciar.
+    run_module "CachyOS (repos + kernel)" install_cachyos_repos
+    run_module "Hardware (microcode + GPU)" install_hardware
+    run_module "GNOME base"               install_gnome
+    run_module "Tema WhiteSur"            install_theme
+    run_module "Extensiones GNOME"        install_extensions
+    run_module "Fuentes"                  install_fonts
+    run_module "Terminal"                 install_terminal
+    run_module "Ulauncher"               install_spotlight
+    run_module "Apps + dev"              install_apps
+    run_module "Wallpapers"              install_wallpapers
+    run_module "Ajustes GNOME (dconf)"   apply_tweaks
+
+    print_summary
 }
 
 show_menu() {
@@ -803,7 +906,7 @@ show_menu() {
         echo -e "\n${C}╔══════════════════════════════════════════════════════╗${NC}"
         echo -e "${C}║  Arch Linux — Setup estilo macOS                    ║${NC}"
         echo -e "${C}╚══════════════════════════════════════════════════════╝${NC}\n"
-        echo "  1) Instalar todo (recomendado)"
+        echo "  1) Instalar todo — incluye CachyOS (recomendado)"
         echo "  2) Solo GNOME base"
         echo "  3) Solo tema WhiteSur"
         echo "  4) Solo extensiones GNOME"
@@ -814,7 +917,8 @@ show_menu() {
         echo "  9) Solo ajustes finales"
         echo "  w) Wallpapers dinámicos (cambian por hora)"
         echo "  g) Login GDM estilo macOS (solo botón apagado)"
-        echo "  c) CachyOS repos + kernel BORE (performance)"
+        echo "  c) Solo CachyOS repos + kernel BORE (ya incluido en 'todo')"
+        echo "  h) Solo hardware (microcode + drivers de GPU)"
         echo "  0) Salir"
         echo ""
         read -rp "Selecciona una opción: " choice
@@ -832,6 +936,7 @@ show_menu() {
             w) install_wallpapers; break ;;
             g) apply_gdm; break ;;
             c) install_cachyos_repos; break ;;
+            h) install_hardware; break ;;
             0) exit 0 ;;
             *) warn "Opción inválida" ;;
         esac
@@ -852,6 +957,7 @@ case "${1:-}" in
     --wallpapers)  install_wallpapers ;;
     --gdm)         apply_gdm ;;
     --cachyos)     install_cachyos_repos ;;
+    --hardware)    install_hardware ;;
     "")            show_menu ;;
-    *)             echo "Uso: $0 [--all|--gnome|--theme|--extensions|--fonts|--terminal|--spotlight|--apps|--tweaks|--wallpapers|--gdm|--cachyos]"; exit 1 ;;
+    *)             echo "Uso: $0 [--all|--gnome|--theme|--extensions|--fonts|--terminal|--spotlight|--apps|--tweaks|--wallpapers|--gdm|--cachyos|--hardware]"; exit 1 ;;
 esac

@@ -104,11 +104,23 @@ mount "$PART1" /mnt/boot/efi
 ok "Montado"
 
 # ── 3. Instalar sistema base ──────────────────────────────────────────────
+# Microcode del CPU: crítico en baremetal (parches de erratas/seguridad del
+# fabricante). En una VM no aplica — por eso es fácil olvidarlo.
+if grep -q "AuthenticAMD" /proc/cpuinfo; then
+    UCODE="amd-ucode"
+elif grep -q "GenuineIntel" /proc/cpuinfo; then
+    UCODE="intel-ucode"
+else
+    UCODE=""
+fi
+[[ -n "$UCODE" ]] && info "Microcode detectado: $UCODE" || warn "Vendor de CPU desconocido — sin microcode"
+
 info "Instalando sistema base con pacstrap..."
 pacstrap -K /mnt \
-    base linux linux-firmware \
+    base linux linux-headers linux-firmware ${UCODE} \
     base-devel git vim sudo \
     networkmanager grub efibootmgr \
+    mesa \
     pipewire pipewire-alsa pipewire-pulse wireplumber
 ok "Sistema base instalado"
 
