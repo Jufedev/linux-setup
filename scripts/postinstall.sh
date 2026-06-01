@@ -153,11 +153,15 @@ install_gnome() {
         gvfs \
         gvfs-mtp
 
+    # Bluetooth (demonio + bluetoothctl)
+    pac_install bluez bluez-utils
+
     # Crear carpetas estándar (Documents, Downloads, Pictures, etc.)
     xdg-user-dirs-update
 
     sudo systemctl enable gdm
-    ok "GNOME mínimo instalado y GDM habilitado"
+    sudo systemctl enable bluetooth
+    ok "GNOME mínimo instalado, GDM y Bluetooth habilitados"
 
     # ── Remover bloat de dependencias ──
     info "Removiendo apps innecesarias (dependencias no deseadas)..."

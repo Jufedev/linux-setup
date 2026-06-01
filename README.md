@@ -369,7 +369,7 @@ sudo grub-mkconfig -o /boot/grub/grub.cfg
 gnome-shell, gdm, gnome-control-center, gnome-tweaks, gnome-shell-extensions,
 gnome-keyring, gnome-menus, nautilus, xdg-user-dirs, xdg-desktop-portal-gnome,
 file-roller, evince, eog, gnome-calculator, gnome-calendar, gnome-disk-utility,
-gnome-system-monitor, gvfs, gvfs-mtp
+gnome-system-monitor, gvfs, gvfs-mtp, bluez, bluez-utils (servicio `bluetooth` habilitado)
 
 **NO se instala:**
 gnome-terminal (usamos Kitty), GNOME Maps, Weather, Music, Photos, Contacts,
