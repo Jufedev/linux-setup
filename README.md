@@ -330,6 +330,35 @@ Opciones:
 1. **Seleccionar wallpaper dinámico** → Configuración → Fondo → elegir un wallpaper WhiteSur (cambia solo por hora)
 2. **GDM** → correr `bash scripts/postinstall.sh --gdm` (requiere sudo)
 
+### Monitor sin EDID (resoluciones faltantes)
+
+Algunos monitores viejos o conectados por adaptador (p. ej. DP→VGA/DVI) **no entregan EDID**,
+así que el kernel no conoce sus modos y cae a `640x480`. GNOME entonces no ofrece la resolución
+nativa del panel.
+
+Diagnóstico — un EDID de `0 bytes` confirma el caso:
+
+```bash
+for c in /sys/class/drm/card*-*/; do
+  printf '%s: %s bytes\n' "$(basename "$c")" "$(wc -c < "$c/edid")"
+done
+```
+
+Solución — forzar el modo por parámetro de kernel en GRUB. Sintaxis: `video=<CONECTOR>:<ANCHO>x<ALTO>@<HZ>`
+(el nombre del conector sale del comando de arriba, p. ej. `DP-1`, `HDMI-A-1`):
+
+```bash
+# Editar la línea GRUB_CMDLINE_LINUX_DEFAULT en /etc/default/grub y agregar el parámetro.
+# Ejemplo real (BenQ T71W por DP-1, panel nativo 1440x900@60):
+#   GRUB_CMDLINE_LINUX_DEFAULT="loglevel=3 quiet video=DP-1:1440x900@60"
+sudo grub-mkconfig -o /boot/grub/grub.cfg
+# Reiniciar. Al volver, GNOME ya ofrece la resolución en Configuración → Pantallas.
+```
+
+> Es específico de tu hardware, por eso NO va en los scripts: el conector y la resolución
+> cambian por máquina. Si el modo no levanta, probá agregar `e` para forzar el encendido
+> del conector: `video=DP-1:1440x900@60e`.
+
 ---
 
 ## Qué se instala (y qué NO)
