@@ -124,14 +124,14 @@ O usar flags directamente:
 
 ## Paso 3 — Login GDM estilo macOS (opcional)
 
-Aplica el tema WhiteSur al login screen con una configuración minimalista: solo el nombre de usuario y el campo de contraseña sobre el wallpaper dinámico Ventura (cambia según la hora).
+Aplica el tema WhiteSur al login screen con una configuración minimalista: solo el nombre de usuario y el campo de contraseña sobre el wallpaper dinámico WhiteSur (Big Sur), que cambia según la hora.
 
 ```bash
 bash scripts/postinstall.sh --gdm
 ```
 
 **Qué hace internamente:**
-1. Copia wallpapers Ventura a `/usr/share/backgrounds/` (si no están)
+1. Copia wallpapers WhiteSur a `/usr/share/backgrounds/` (si no están)
 2. Genera versiones con blur de los wallpapers via ImageMagick (efecto difuminado estilo macOS)
 3. Clona WhiteSur-gtk-theme y aplica el tema a GDM
 4. Instala un servicio systemd que actualiza el wallpaper según la hora (light 7AM–7PM, dark el resto)
@@ -263,6 +263,20 @@ distrobox create --name dev-experimental --image localhost/dev-env
 
 Por defecto Distrobox comparte tu `$HOME` con el contenedor — tus archivos, configs de git, SSH keys, todo disponible sin copiar nada.
 
+### SSH con passphrase dentro de los contenedores
+
+La llave generada en el [Paso 6](#paso-6--ssh-para-github-sin-tokens) tiene passphrase. El archivo (`~/.ssh/github_ed25519`) se comparte automáticamente vía `$HOME`, pero el `ssh-agent` del host **no** entra al contenedor. Para no tipear la passphrase en cada `git push`, levantá un agente dentro del contenedor y cargá la llave una vez por sesión:
+
+```bash
+distrobox enter dev
+
+# Una sola vez por sesión del contenedor:
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/github_ed25519   # te pide la passphrase (la que guardaste en tu gestor)
+```
+
+A partir de ahí, todos los `git push` de esa sesión usan el agente sin volver a pedirla. Si querés que se levante solo, agregá esas dos líneas al `~/.bashrc`/`~/.zshrc` de tu imagen base (`Containerfile`).
+
 ### Actualizar la imagen base
 
 1. Editar el `Containerfile`
@@ -293,10 +307,10 @@ bash scripts/ssh-github.sh
 ```
 
 Qué hace:
-1. Genera `~/.ssh/github_ed25519` (no sobreescribe si ya existe)
+1. Genera `~/.ssh/github_ed25519` con una **passphrase aleatoria robusta** (no sobreescribe si ya existe)
 2. Agrega un bloque `Host github.com` a `~/.ssh/config` apuntando a esa llave
-3. Carga la llave en `ssh-agent` y copia la **pública** al portapapeles
-4. Te abre el flujo para pegarla en GitHub → `https://github.com/settings/ssh/new`
+3. Imprime en consola la **clave pública** y la **passphrase** para que las guardes en tu gestor de contraseñas
+4. Te abre el flujo para pegar la pública en GitHub → `https://github.com/settings/ssh/new`
 5. Ofrece cambiar el `origin` de este repo de HTTPS a SSH y verifica la conexión
 
 Opciones:
@@ -304,10 +318,10 @@ Opciones:
 | Flag | Efecto |
 |------|--------|
 | `--email <correo>` | Comentario de la llave (default: `usuario@hostname`) |
-| `--passphrase` | Pide passphrase (más seguro, pero requiere `ssh-agent` en cada distrobox) |
+| `--no-passphrase` | Genera la llave **sin** passphrase (frictionless, menos seguro) |
 | `--switch-remote` / `--no-switch-remote` | Cambia (o no) el remote a SSH sin preguntar |
 
-> Por defecto la llave se genera **sin passphrase** para que el push sea sin fricción y funcione directo dentro de los contenedores. Si preferís una passphrase, usá `--passphrase` o agregala después con `ssh-keygen -p -f ~/.ssh/github_ed25519`.
+> Por defecto la llave lleva una passphrase aleatoria que el script genera y muestra **una sola vez** — guardala en tu gestor antes de cerrar la terminal. Gracias a `AddKeysToAgent yes` en `~/.ssh/config`, el primer `git push` te la pide una vez y el `ssh-agent` la recuerda. Para usarla dentro de Distrobox, ver la nota de ssh-agent en el [Paso 5](#paso-5--entornos-de-desarrollo-con-distrobox-opcional).
 
 ---
 
@@ -324,8 +338,8 @@ Opciones:
 
 **Sí se instala:**
 gnome-shell, gdm, gnome-control-center, gnome-tweaks, gnome-shell-extensions,
-gnome-keyring, nautilus, xdg-user-dirs, xdg-desktop-portal-gnome, file-roller,
-evince, eog, gnome-calculator, gnome-calendar, gnome-disk-utility,
+gnome-keyring, gnome-menus, nautilus, xdg-user-dirs, xdg-desktop-portal-gnome,
+file-roller, evince, eog, gnome-calculator, gnome-calendar, gnome-disk-utility,
 gnome-system-monitor, gvfs, gvfs-mtp
 
 **NO se instala:**
