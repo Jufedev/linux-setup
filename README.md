@@ -106,7 +106,7 @@ O usar flags directamente:
 | `--gnome` | GNOME mínimo + GDM |
 | `--theme` | Tema WhiteSur (GTK + iconos + cursores + libadwaita) |
 | `--extensions` | Extensiones GNOME + extensiones custom (calendar-tweaks, dock-magnify, panel-tweaks) |
-| `--fonts` | Inter + JetBrainsMono Nerd Font |
+| `--fonts` | Inter + JetBrainsMono Nerd Font + Noto Color Emoji |
 | `--terminal` | Kitty + Zsh + Starship + plugins |
 | `--spotlight` | Ulauncher + tema macOS Tahoe Dark |
 | `--apps` | Flameshot, Chrome, Edge, ufw, Podman + Distrobox |

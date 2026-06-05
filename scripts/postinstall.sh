@@ -283,6 +283,7 @@ install_fonts() {
     step "Fuentes del sistema"
 
     aur_install ttf-inter ttf-jetbrains-mono-nerd
+    pac_install noto-fonts-emoji   # Emojis a color (fallback para navegadores y apps)
 
     ok "Fuentes instaladas"
 }
