@@ -1,6 +1,6 @@
 # linux-setup — Setup estilo macOS
 
-Automatiza la post-instalación de Arch Linux y (próximamente) Fedora con un look macOS completo: tema WhiteSur, fuentes Inter + JetBrains Mono, Kitty, Zsh + Starship, extensiones custom, wallpapers dinámicos y optimizaciones de performance via CachyOS.
+Automatiza la post-instalación de Arch Linux y Fedora con un look macOS completo: tema WhiteSur, fuentes Inter + JetBrains Mono, Kitty, Zsh + Starship, extensiones custom, wallpapers dinámicos y optimizaciones de performance via CachyOS.
 
 ## Stack
 
@@ -53,7 +53,7 @@ O ejecutá directamente el script de tu distro:
 # Arch / CachyOS
 bash arch/scripts/postinstall.sh --all
 
-# Fedora 42 + KDE (Slice 2, próximamente)
+# Fedora 42 + KDE
 bash fedora/scripts/postinstall.sh --all
 ```
 

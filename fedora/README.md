@@ -58,6 +58,7 @@ The script is safe to re-run. Each module is idempotent.
 | `--fonts` | Installs Inter, JetBrains Mono, Noto Emoji; applies KDE font config |
 | `--apps` | Installs flameshot, podman, distrobox, Chrome (Flatpak), enables firewalld |
 | `--themes` | Clones + installs WhiteSur-kde (Plasma look-and-feel + Aurorae) |
+| `--gtk` | Clones + installs WhiteSur-gtk-theme (GTK3/GTK4 + libadwaita link) |
 | `--kvantum` | Installs Kvantum, sets WhiteSurDark widget style |
 | `--icons` | Clones + installs WhiteSur icons and cursors |
 | `--decorations` | Configures Aurorae window decorations, macOS left-side buttons |
