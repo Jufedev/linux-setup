@@ -3,7 +3,7 @@
 # Fedora 42 + KDE Plasma 6 — Setup estilo macOS
 # Ejecutar como usuario normal después del primer boot
 # Uso: bash postinstall.sh [--all | --repos | --fonts | --apps | --themes |
-#          --kvantum | --icons | --decorations | --wallpapers | --panel | --konsole]
+#          --gtk | --kvantum | --icons | --decorations | --wallpapers | --panel | --konsole]
 # Sin argumentos = muestra el uso
 # ============================================================================
 set -euo pipefail
@@ -163,15 +163,45 @@ setup_repos() {
 
 # ── Módulo 2: Fuentes ────────────────────────────────────────────────────────
 install_fonts() {
-    step "Fonts — Inter + JetBrains Mono + Noto Emoji"
+    step "Fonts — Inter + JetBrainsMono Nerd Font + Noto Emoji"
 
-    # NOTA: los nombres de paquete rsms-inter-fonts y jetbrains-mono-fonts-all
-    # son los esperados para Fedora 42. Verificar con `dnf search inter fonts`
-    # y `dnf search jetbrains` en la primera ejecución real si algo falla.
+    # Inter (UI general) y Noto Emoji vienen directamente de los repos de Fedora.
+    # jetbrains-mono-fonts-all se instala como fallback (no tiene glifos Nerd Font).
     dnf_install \
         rsms-inter-fonts \
         jetbrains-mono-fonts-all \
         google-noto-emoji-fonts
+
+    # Instalar la variante Nerd Font de JetBrains Mono desde el release oficial.
+    # El paquete jetbrains-mono-fonts-all NO incluye los glifos de iconos que
+    # necesita Starship — hay que bajar el archivo .tar.xz del proyecto nerd-fonts.
+    local nerd_font_dir="${HOME}/.local/share/fonts/JetBrainsMonoNerd"
+    if fc-list | grep -qi 'JetBrainsMono Nerd'; then
+        info "JetBrainsMono Nerd Font already installed — skipping download"
+    else
+        info "Downloading JetBrainsMono Nerd Font from nerd-fonts releases..."
+        local nf_tmp
+        nf_tmp="$(mktemp -d)"
+        # shellcheck disable=SC2064
+        trap "rm -rf '$nf_tmp'" RETURN
+        local nf_archive="${nf_tmp}/JetBrainsMono.tar.xz"
+
+        if curl -fsSL \
+            "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.tar.xz" \
+            -o "$nf_archive" 2>&1 | tee -a "$LOG_FILE"; then
+            mkdir -p "$nerd_font_dir"
+            tar -xf "$nf_archive" --wildcards '*.ttf' -C "$nerd_font_dir" \
+                2>&1 | tee -a "$LOG_FILE" \
+                || warn "tar extraction returned non-zero — some font files may be missing"
+            info "JetBrainsMono Nerd Font extracted to $nerd_font_dir"
+        else
+            warn "JetBrainsMono Nerd Font download failed — Starship/powerline glyphs may not render"
+            FAILED_PKGS+=("nerd-fonts:JetBrainsMono")
+        fi
+    fi
+
+    # Regenerar caché de fuentes para que las apps vean las nuevas fuentes
+    fc-cache -f 2>&1 | tee -a "$LOG_FILE" || warn "fc-cache returned non-zero"
 
     # Aplicar fuentes en KDE via kwriteconfig6 (solo si está disponible)
     if command -v kwriteconfig6 &>/dev/null; then
@@ -179,12 +209,9 @@ install_fonts() {
         # Fuente general: Inter 10pt
         kwriteconfig6 --file kdeglobals --group General \
             --key font "Inter,10,-1,5,50,0,0,0,0,0"
-        # Fuente monospace: JetBrainsMono Nerd Font 10pt
-        # NOTA: requiere instalar la variante Nerd Font por separado si el paquete
-        # jetbrains-mono-fonts-all no la incluye. Ajustar el nombre de la fuente
-        # si fc-list no muestra "JetBrainsMono Nerd Font".
+        # Fuente monospace: JetBrainsMono Nerd Font 10pt (con glifos de iconos)
         kwriteconfig6 --file kdeglobals --group General \
-            --key fixed "JetBrains Mono,10,-1,5,50,0,0,0,0,0"
+            --key fixed "JetBrainsMono Nerd Font,10,-1,5,50,0,0,0,0,0"
         ok "KDE font config written — re-login to apply fonts fully"
     else
         warn "kwriteconfig6 not found — skipping KDE font config (run after KDE is installed)"
@@ -250,6 +277,35 @@ install_whitesur_themes() {
         || warn "plasma-apply-lookandfeel returned non-zero (normal si no hay sesión gráfica activa)"
 
     ok "WhiteSur KDE theme installed"
+}
+
+# ── Módulo 4b: WhiteSur GTK theme ────────────────────────────────────────────
+# WhiteSur-kde NO instala el tema GTK — ese está en un repo separado.
+# Este módulo clona WhiteSur-gtk-theme y lo instala con el enlace libadwaita (-l)
+# para que las apps GTK4 también hereden el look WhiteSur.
+install_whitesur_gtk() {
+    step "WhiteSur GTK — GTK3/GTK4 theme + libadwaita link"
+
+    local tmp_dir
+    tmp_dir="$(mktemp -d)"
+    trap 'rm -rf "$tmp_dir"' RETURN
+
+    info "Cloning WhiteSur-gtk-theme..."
+    git clone --depth=1 https://github.com/vinceliuice/WhiteSur-gtk-theme.git \
+        "$tmp_dir/WhiteSur-gtk-theme" 2>&1 | tee -a "$LOG_FILE" \
+        || { warn "WhiteSur-gtk-theme clone failed — skipping GTK theme install"; return 0; }
+
+    info "Running WhiteSur-gtk-theme install.sh -l (libadwaita link)..."
+    bash "$tmp_dir/WhiteSur-gtk-theme/install.sh" -l 2>&1 | tee -a "$LOG_FILE" \
+        || warn "WhiteSur-gtk-theme install.sh returned non-zero (partial install may still work)"
+
+    # Registrar el tema GTK en KDE para que Dolphin y apps GTK lo usen
+    if command -v kwriteconfig6 &>/dev/null; then
+        kwriteconfig6 --file kdeglobals --group General --key GtkTheme WhiteSur-Dark
+        info "KDE GTK theme set to WhiteSur-Dark"
+    fi
+
+    ok "WhiteSur GTK theme installed"
 }
 
 # ── Módulo 5: Kvantum ────────────────────────────────────────────────────────
@@ -473,6 +529,7 @@ run_all() {
     run_module "Fonts"                         install_fonts
     run_module "Apps + dev + firewall"         install_apps
     run_module "WhiteSur themes"               install_whitesur_themes
+    run_module "WhiteSur GTK theme"            install_whitesur_gtk
     run_module "Kvantum"                       apply_kvantum
     run_module "Icons + cursors"               install_icons_cursors
     run_module "Window decorations"            apply_window_decorations
@@ -490,6 +547,7 @@ case "${1:-}" in
     --fonts)       run_module "Fonts"                         install_fonts;        print_summary ;;
     --apps)        run_module "Apps + dev + firewall"         install_apps;         print_summary ;;
     --themes)      run_module "WhiteSur themes"               install_whitesur_themes; print_summary ;;
+    --gtk)         run_module "WhiteSur GTK theme"            install_whitesur_gtk; print_summary ;;
     --kvantum)     run_module "Kvantum"                       apply_kvantum;        print_summary ;;
     --icons)       run_module "Icons + cursors"               install_icons_cursors; print_summary ;;
     --decorations) run_module "Window decorations"            apply_window_decorations; print_summary ;;
@@ -497,7 +555,7 @@ case "${1:-}" in
     --panel)       run_module "Panel layout"                  apply_panel_layout;   print_summary ;;
     --konsole)     run_module "Konsole profile"               install_konsole_profile; print_summary ;;
     *)
-        echo "Usage: $0 [--all | --repos | --fonts | --apps | --themes | --kvantum | --icons | --decorations | --wallpapers | --panel | --konsole]"
+        echo "Usage: $0 [--all | --repos | --fonts | --apps | --themes | --gtk | --kvantum | --icons | --decorations | --wallpapers | --panel | --konsole]"
         exit 0
         ;;
 esac
