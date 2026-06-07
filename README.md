@@ -1,35 +1,67 @@
-# Arch Linux — Setup estilo macOS (mínimo)
+# linux-setup — Setup estilo macOS
 
-Instalación automatizada de Arch Linux con GNOME mínimo, sin bloatware, configurado para verse como macOS. Incluye optimizaciones de performance via CachyOS, integradas en la instalación principal.
+Automatiza la post-instalación de Arch Linux y (próximamente) Fedora con un look macOS completo: tema WhiteSur, fuentes Inter + JetBrains Mono, Kitty, Zsh + Starship, extensiones custom, wallpapers dinámicos y optimizaciones de performance via CachyOS.
 
 ## Stack
 
 **Arch Linux + GNOME (mínimo)** · WhiteSur theme · Kitty + Zsh + Starship · Wallpapers dinámicos · CachyOS (kernel BORE + repos optimizados)
 
+**Fedora 42 + KDE Plasma 6** — setup macOS con WhiteSur · Inter/JetBrains Mono · Konsole · KRunner · panel nativo flotante *(ver [fedora/README.md](fedora/README.md))*
+
 ## Estructura
 
 ```
-archlinux-setup/
-├── scripts/
-│   ├── install.sh                  # Instalación base (UEFI/GPT)
-│   ├── postinstall.sh              # Setup visual macOS + apps + performance
-│   ├── refresh.sh                  # Refresca configs sin reinstalar
+linux-setup/
+├── setup.sh                        # Dispatcher: detecta la distro y delega
+├── shared/
 │   ├── ssh-github.sh               # Genera llave SSH para push a GitHub (sin tokens)
-│   └── gdm-wallpaper-update.sh    # Wallpaper dinámico del GDM por hora
-├── configs/
-│   ├── kitty/kitty.conf            # Terminal con Catppuccin Mocha
-│   ├── starship/starship.toml      # Prompt minimalista con iconos
-│   ├── ulauncher/macos-tahoe/      # Tema custom Ulauncher (Spotlight)
-│   └── gnome/
-│       ├── gnome-macos.dconf       # Configuración GNOME completa
-│       ├── calendar-tweaks/        # Extensión custom: colapsa mensaje list del calendario
-│       ├── dock-magnify/           # Extensión custom: fish-eye en el dock
-│       ├── icons/                  # Íconos custom (app grid 9 puntos)
-│       └── panel-tweaks/           # Extensión custom: reorganiza el panel superior
+│   └── starship/starship.toml      # Prompt minimalista compartido (Arch + Fedora)
+├── arch/
+│   ├── scripts/
+│   │   ├── install.sh              # Instalación base (UEFI/GPT)
+│   │   ├── postinstall.sh          # Setup visual macOS + apps + performance
+│   │   ├── refresh.sh              # Refresca configs sin reinstalar
+│   │   └── gdm-wallpaper-update.sh # Wallpaper dinámico del GDM por hora
+│   └── configs/
+│       ├── kitty/kitty.conf        # Terminal con Catppuccin Mocha
+│       ├── ulauncher/macos-tahoe/  # Tema custom Ulauncher (Spotlight)
+│       └── gnome/
+│           ├── gnome-macos.dconf   # Configuración GNOME completa
+│           ├── calendar-tweaks/    # Extensión custom: colapsa mensaje list del calendario
+│           ├── dock-magnify/       # Extensión custom: fish-eye en el dock
+│           ├── icons/              # Íconos custom (app grid 9 puntos)
+│           └── panel-tweaks/       # Extensión custom: reorganiza el panel superior
+├── fedora/
+│   ├── scripts/postinstall.sh      # Setup macOS para Fedora 42 + KDE Plasma 6
+│   └── configs/kde/                # Layouts de panel y perfil de Konsole
 └── README.md
 ```
 
-## Requisitos
+## Inicio rápido
+
+El dispatcher `setup.sh` detecta tu distro automáticamente:
+
+```bash
+git clone https://github.com/Jufedev/linux-setup.git ~/linux-setup
+cd ~/linux-setup
+bash setup.sh --all
+```
+
+O ejecutá directamente el script de tu distro:
+
+```bash
+# Arch / CachyOS
+bash arch/scripts/postinstall.sh --all
+
+# Fedora 42 + KDE (Slice 2, próximamente)
+bash fedora/scripts/postinstall.sh --all
+```
+
+---
+
+## Arch Linux — Instalación completa
+
+### Requisitos
 
 - USB live de Arch Linux (bootear en modo **UEFI**, no Legacy)
 - Conexión a internet (WiFi o Ethernet)
@@ -37,7 +69,7 @@ archlinux-setup/
 
 ---
 
-## Paso 1 — Instalación base (desde el USB live)
+### Paso 1 — Instalación base (desde el USB live)
 
 1. Bootear el USB en modo **UEFI** desde el BIOS
 2. Conectar a internet:
@@ -53,7 +85,7 @@ station wlan0 connect "TU_SSID"
 3. Descargar y ejecutar:
 
 ```bash
-curl -LO https://raw.githubusercontent.com/Jufedev/archlinux-setup/main/scripts/install.sh
+curl -LO https://raw.githubusercontent.com/Jufedev/linux-setup/main/arch/scripts/install.sh
 bash install.sh
 ```
 
@@ -76,14 +108,14 @@ reboot
 
 ---
 
-## Paso 2 — Post-instalación (después del primer boot)
+### Paso 2 — Post-instalación (después del primer boot)
 
 Clonar el repo (si no lo tenés) y ejecutar:
 
 ```bash
-git clone https://github.com/Jufedev/archlinux-setup.git ~/archlinux-setup
-cd ~/archlinux-setup
-bash scripts/postinstall.sh --all
+git clone https://github.com/Jufedev/linux-setup.git ~/linux-setup
+cd ~/linux-setup
+bash arch/scripts/postinstall.sh --all
 ```
 
 Esto instala todo de una vez, **en este orden**: CachyOS (repos + kernel) → hardware (microcode + drivers de GPU) → GNOME → tema → extensiones → fuentes → terminal → Ulauncher → apps → wallpapers → ajustes visuales.
@@ -95,7 +127,7 @@ CachyOS va primero a propósito: así GNOME, mesa y el resto se bajan ya compila
 Para elegir módulos individuales, ejecutar sin argumentos para el menú interactivo:
 
 ```bash
-bash scripts/postinstall.sh
+bash arch/scripts/postinstall.sh
 ```
 
 O usar flags directamente:
@@ -122,12 +154,12 @@ O usar flags directamente:
 
 ---
 
-## Paso 3 — Login GDM estilo macOS (opcional)
+### Paso 3 — Login GDM estilo macOS (opcional)
 
 Aplica el tema WhiteSur al login screen con una configuración minimalista: solo el nombre de usuario y el campo de contraseña sobre el wallpaper dinámico WhiteSur (Big Sur), que cambia según la hora.
 
 ```bash
-bash scripts/postinstall.sh --gdm
+bash arch/scripts/postinstall.sh --gdm
 ```
 
 **Qué hace internamente:**
@@ -147,14 +179,14 @@ sudo systemctl restart gdm
 
 ---
 
-## Paso 4 — Performance con CachyOS (incluido en `--all`)
+### Paso 4 — Performance con CachyOS (incluido en `--all`)
 
 CachyOS ahora es el **primer módulo** de `--all`: se configura antes que nada para que GNOME, mesa y el resto de los paquetes se instalen ya compilados con instrucciones optimizadas para tu CPU. Agrega los repos a tu Arch base sin reemplazarla, más un kernel con mejor responsividad de desktop.
 
 Para correrlo de forma aislada (por ejemplo, en un sistema ya instalado):
 
 ```bash
-bash scripts/postinstall.sh --cachyos
+bash arch/scripts/postinstall.sh --cachyos
 ```
 
 **Qué hace internamente:**
@@ -173,7 +205,7 @@ bash scripts/postinstall.sh --cachyos
 
 ---
 
-## Paso 5 — Entornos de desarrollo con Distrobox (opcional)
+### Paso 5 — Entornos de desarrollo con Distrobox (opcional)
 
 Distrobox crea contenedores que se sienten nativos (acceden a tu display, red, home, clipboard) pero están completamente aislados del sistema base. Tu Arch con GNOME + WhiteSur queda limpio como capa visual, todo el trabajo pesado vive dentro de contenedores.
 
@@ -298,12 +330,12 @@ A partir de ahí, todos los `git push` de esa sesión usan el agente sin volver 
 
 ---
 
-## Paso 6 — SSH para GitHub (sin tokens)
+### Paso 6 — SSH para GitHub (sin tokens)
 
 Autenticá `git push` con una llave SSH `ed25519` en vez de andar manejando tokens. Como Distrobox comparte tu `$HOME`, la llave en `~/.ssh` queda disponible dentro de **todos** tus contenedores sin copiar nada.
 
 ```bash
-bash scripts/ssh-github.sh
+bash shared/ssh-github.sh
 ```
 
 Qué hace:
@@ -325,10 +357,10 @@ Opciones:
 
 ---
 
-## Paso 7 — Ajustes manuales
+### Paso 7 — Ajustes manuales
 
 1. **Seleccionar wallpaper dinámico** → Configuración → Fondo → elegir un wallpaper WhiteSur (cambia solo por hora)
-2. **GDM** → correr `bash scripts/postinstall.sh --gdm` (requiere sudo)
+2. **GDM** → correr `bash arch/scripts/postinstall.sh --gdm` (requiere sudo)
 
 ### Monitor sin EDID (resoluciones faltantes)
 
@@ -361,7 +393,17 @@ sudo grub-mkconfig -o /boot/grub/grub.cfg
 
 ---
 
-## Qué se instala (y qué NO)
+## Fedora 42 + KDE Plasma 6 — macOS setup (próximamente)
+
+Fedora + KDE Plasma 6 macOS setup — coming in `fedora/` (see [fedora/README.md](fedora/README.md)).
+
+> T1.8 (manual): rename the GitHub repository from `archlinux-setup` to `linux-setup` via
+> GitHub Settings → General → Repository Name. GitHub auto-redirects the old URL — all existing
+> clones and remotes keep working.
+
+---
+
+## Qué se instala (y qué NO) — Arch
 
 ### GNOME mínimo (en vez del metapaquete `gnome` con ~40 apps)
 
@@ -392,9 +434,9 @@ Console, ni ningún juego
 | User Themes | Temas de shell custom |
 | Vitals | Monitor de recursos en la barra (equivalente a iStatMenus) |
 
-Las extensiones custom están incluidas en el repo (`configs/gnome/`) y se instalan automáticamente con `--extensions`. No requieren ningún paso extra.
+Las extensiones custom están incluidas en el repo (`arch/configs/gnome/`) y se instalan automáticamente con `--extensions`. No requieren ningún paso extra.
 
-### Equivalencias macOS → Linux
+### Equivalencias macOS → Linux (Arch)
 
 | macOS | Linux | Paquete |
 |---|---|---|
@@ -427,4 +469,3 @@ gnome-text-editor    — editor de texto simple
 seahorse             — gestor de contraseñas/llaves
 simple-scan          — escaneo de documentos
 ```
-
