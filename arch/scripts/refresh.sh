@@ -2,7 +2,7 @@
 # ============================================================================
 # Arch Linux — Refresh de configuraciones
 # Aplica cambios de configs sin reinstalar. Ideal para prueba y error.
-# Uso: bash scripts/refresh.sh [--all | --configs | --dconf | --dock | --ulauncher | --wallpaper | --gdm]
+# Uso: bash arch/scripts/refresh.sh [--all | --configs | --dconf | --dock | --ulauncher | --wallpaper | --gdm]
 # Sin argumentos = --all (todo excepto GDM)
 # ============================================================================
 set -euo pipefail

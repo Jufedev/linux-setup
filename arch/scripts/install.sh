@@ -16,7 +16,7 @@ fail()  { echo -e "${R}[FAIL]${NC}  $1"; exit 1; }
 [[ $EUID -ne 0 ]] && fail "Ejecuta este script como root"
 [[ ! -d /sys/firmware/efi ]] && fail "Este script requiere modo UEFI — reinicia en modo UEFI desde el BIOS"
 
-REPO_URL="https://github.com/Jufedev/archlinux-setup.git"
+REPO_URL="https://github.com/Jufedev/linux-setup.git"
 
 # ── Preparación del entorno live ──────────────────────────────────────────
 info "Verificando conexión a internet..."
@@ -200,4 +200,4 @@ echo "  1. umount -R /mnt"
 echo "  2. reboot"
 echo "  3. Loguearse como ${USERNAME} (contraseña temporal: ${USERNAME})"
 echo "  4. El sistema te pedirá cambiar la contraseña en el primer login"
-echo "  5. Ejecutar: bash ~/archlinux-setup/scripts/postinstall.sh"
+echo "  5. Ejecutar: bash ~/linux-setup/arch/scripts/postinstall.sh"

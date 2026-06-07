@@ -11,7 +11,7 @@
 # tu gestor de contraseñas. Como la llave tiene passphrase, dentro de distrobox
 # usás ssh-agent (ver README, sección Distrobox).
 #
-# Uso: bash scripts/ssh-github.sh [opciones]
+# Uso: bash shared/ssh-github.sh [opciones]
 #   --email <correo>     Comentario de la llave (default: usuario@hostname)
 #   --no-passphrase      Genera la llave SIN passphrase (frictionless, menos seguro)
 #   --switch-remote      Cambia el origin de este repo de HTTPS a SSH sin preguntar
