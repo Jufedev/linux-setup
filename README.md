@@ -393,11 +393,22 @@ sudo grub-mkconfig -o /boot/grub/grub.cfg
 
 ---
 
-## Fedora 42 + KDE Plasma 6 — macOS setup (próximamente)
+## Fedora 42 + KDE Plasma 6 — macOS setup
 
-Fedora + KDE Plasma 6 macOS setup — coming in `fedora/` (see [fedora/README.md](fedora/README.md)).
+Setup completo para **Fedora 42 KDE Spin**: WhiteSur theme stack (Plasma look-and-feel + Aurorae + Kvantum + icons + cursors + GTK), fuentes Inter + JetBrains Mono, layout macOS de paneles (barra superior + dock inferior) y perfil de Konsole a medida.
 
-> T1.8 (manual): rename the GitHub repository from `archlinux-setup` to `linux-setup` via
+> **Antes de correr los módulos de temas**: tomá un snapshot de Btrfs como safety net.
+> `sudo btrfs subvolume snapshot / /.snapshots/pre-whitesur-$(date +%F)`
+> Fedora mantiene el kernel anterior en GRUB (`installonly_limit=3`) — si algo sale mal, reiniciá y elegí la entrada previa.
+
+```bash
+# Fedora 42 + KDE
+bash fedora/scripts/postinstall.sh --all
+```
+
+Ver la guía completa, prerequisitos, tabla de flags y limitaciones conocidas en **[fedora/README.md](fedora/README.md)**.
+
+> **T1.8 (manual):** rename the GitHub repository from `archlinux-setup` to `linux-setup` via
 > GitHub Settings → General → Repository Name. GitHub auto-redirects the old URL — all existing
 > clones and remotes keep working.
 
