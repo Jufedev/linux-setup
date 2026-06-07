@@ -17,6 +17,7 @@ step()  { echo -e "\n${C}━━━ $1 ━━━${NC}\n"; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIGS_DIR="${SCRIPT_DIR}/../configs"
+SHARED_DIR="${SCRIPT_DIR}/../../shared"
 
 # Log persistente (sobrevive reinicios — /tmp se borra al rebootear)
 LOG_DIR="${XDG_STATE_HOME:-$HOME/.local/state}"
@@ -302,7 +303,7 @@ install_terminal() {
 
     info "Copiando configuración de Starship..."
     mkdir -p "$HOME/.config"
-    cp "${CONFIGS_DIR}/starship/starship.toml" "$HOME/.config/starship.toml"
+    cp "${SHARED_DIR}/starship/starship.toml" "$HOME/.config/starship.toml"
     ok "starship.toml copiado"
 
     # Configurar .zshrc
