@@ -1,5 +1,6 @@
 // panel-layout.js — Plasma 6 Desktop Scripting API
 // Configures a macOS-style layout: top menu bar + bottom floating icon dock.
+// Clock: 24-hour format + date display (us, altgr-intl keyboard is set by --keyboard).
 //
 // RE-RUN BEHAVIOR: This script clears ALL existing panels before rebuilding.
 // Running it twice will NOT stack duplicate panels, but any manual panel
@@ -35,8 +36,11 @@ topBar.addWidget("org.kde.plasma.panelspacer");
 // System tray (notifications, network, audio, etc.)
 topBar.addWidget("org.kde.plasma.systemtray");
 
-// Digital clock
-topBar.addWidget("org.kde.plasma.digitalclock");
+// Digital clock — 24h format + date
+var clock = topBar.addWidget("org.kde.plasma.digitalclock");
+clock.currentConfigGroup = ["Appearance"];
+clock.writeConfig("use24hFormat", 2);   // 0=12h, 1=locale, 2=24h
+clock.writeConfig("showDate", true);
 
 // ── BOTTOM dock — floating Icons-Only Task Manager ───────────────────────────
 // Behaves as a macOS-style Dock: shows running + pinned app icons.
