@@ -111,7 +111,7 @@ Sin argumentos abre un **menú interactivo**, o usá flags directos:
 | `--terminal` | Kitty + Zsh + Starship |
 | `--spotlight` | Ulauncher + tema macOS |
 | `--apps` | Flameshot, Chrome, Edge, ufw, Podman + Distrobox |
-| `--tweaks` | Aplica la config visual de GNOME (correr último) |
+| `--tweaks` | Config de GNOME: tema, fuentes, extensiones, teclado *(us intl AltGr)* — correr último |
 | `--wallpapers` | Wallpapers dinámicos por hora *(ya en `--all`)* |
 | `--gdm` | Login estilo macOS *(ver Extras)* |
 | `--cachyos` | Repos + kernel optimizados *(ya en `--all`)* |
