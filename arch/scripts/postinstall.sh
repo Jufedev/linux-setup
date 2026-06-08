@@ -28,6 +28,11 @@ LOG_FILE="${LOG_DIR}/arch-macos-setup.log"
 FAILED_PKGS=()
 FAILED_MODULES=()
 
+# ── Pinned upstream refs (WhiteSur) ──────────────────────────────────────────
+# Bump intencionalmente; clonar HEAD no es reproducible. Ver dependency audit.
+readonly WHITESUR_GTK_REF="2025-07-24"
+readonly WHITESUR_WALLPAPERS_REF="2023-06-11"
+
 [[ ! -d "$CONFIGS_DIR" ]] && fail "Directorio de configs no encontrado: $CONFIGS_DIR"
 
 # ── Sincronizar base de datos de pacman ───────────────────────────────────
@@ -226,7 +231,7 @@ install_theme() {
     info "Aplicando tema WhiteSur Dark a apps libadwaita (GTK4)..."
     local whitesur_tmp
     whitesur_tmp=$(mktemp -d)
-    git clone --depth=1 https://github.com/vinceliuice/WhiteSur-gtk-theme.git "$whitesur_tmp"
+    git clone --depth=1 --branch "$WHITESUR_GTK_REF" https://github.com/vinceliuice/WhiteSur-gtk-theme.git "$whitesur_tmp"
     (cd "$whitesur_tmp" && ./install.sh -l -c Dark)
     rm -rf "$whitesur_tmp"
     ok "Override GTK4/libadwaita Dark aplicado (botones macOS en todas las ventanas)"
@@ -543,7 +548,7 @@ install_wallpapers() {
     tmpdir=$(mktemp -d)
 
     info "Clonando WhiteSur-wallpapers..."
-    git clone --depth=1 https://github.com/vinceliuice/WhiteSur-wallpapers.git "$tmpdir" \
+    git clone --depth=1 --branch "$WHITESUR_WALLPAPERS_REF" https://github.com/vinceliuice/WhiteSur-wallpapers.git "$tmpdir" \
         2>&1 | tee -a "$LOG_FILE"
 
     info "Instalando wallpapers dinámicos..."
@@ -797,7 +802,7 @@ apply_gdm() {
     tmpdir=$(mktemp -d)
 
     info "Clonando WhiteSur-gtk-theme..."
-    git clone --depth=1 https://github.com/vinceliuice/WhiteSur-gtk-theme.git "$tmpdir" \
+    git clone --depth=1 --branch "$WHITESUR_GTK_REF" https://github.com/vinceliuice/WhiteSur-gtk-theme.git "$tmpdir" \
         2>&1 | tee -a "$LOG_FILE"
 
     info "Aplicando tema WhiteSur a GDM (requiere sudo)..."

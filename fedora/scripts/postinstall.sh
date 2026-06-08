@@ -43,6 +43,14 @@ for _qd in qdbus6 qdbus-qt6 qdbus; do
 done
 export QDBUS
 
+# ── Pinned upstream refs (WhiteSur) ──────────────────────────────────────────
+# Bump intencionalmente; clonar HEAD no es reproducible. Ver dependency audit.
+readonly WHITESUR_GTK_REF="2025-07-24"
+readonly WHITESUR_KDE_REF="2024-11-18"
+readonly WHITESUR_ICON_REF="2025-12-27"
+readonly WHITESUR_WALLPAPERS_REF="2023-06-11"
+readonly WHITESUR_CURSORS_SHA="e190baf618ed95ee217d2fd45589bd309b37672b"
+
 # ── Helpers ────────────────────────────────────────────────────────────────
 # Estrategia: intentar el batch (rápido, resuelve dependencias juntas). Si falla,
 # reintentar paquete por paquete para que UN paquete roto no arrastre al resto.
@@ -293,7 +301,7 @@ install_whitesur_themes() {
     trap 'rm -rf "$tmp_dir"' RETURN
 
     info "Cloning WhiteSur-kde..."
-    git clone --depth=1 https://github.com/vinceliuice/WhiteSur-kde.git \
+    git clone --depth=1 --branch "$WHITESUR_KDE_REF" https://github.com/vinceliuice/WhiteSur-kde.git \
         "$tmp_dir/WhiteSur-kde" 2>&1 | tee -a "$LOG_FILE"
 
     info "Running WhiteSur-kde install.sh..."
@@ -320,7 +328,7 @@ install_whitesur_gtk() {
     trap 'rm -rf "$tmp_dir"' RETURN
 
     info "Cloning WhiteSur-gtk-theme..."
-    git clone --depth=1 https://github.com/vinceliuice/WhiteSur-gtk-theme.git \
+    git clone --depth=1 --branch "$WHITESUR_GTK_REF" https://github.com/vinceliuice/WhiteSur-gtk-theme.git \
         "$tmp_dir/WhiteSur-gtk-theme" 2>&1 | tee -a "$LOG_FILE" \
         || { warn "WhiteSur-gtk-theme clone failed — skipping GTK theme install"; return 0; }
 
@@ -377,7 +385,7 @@ install_icons_cursors() {
 
     # Icons
     info "Cloning WhiteSur-icon-theme..."
-    git clone --depth=1 https://github.com/vinceliuice/WhiteSur-icon-theme.git \
+    git clone --depth=1 --branch "$WHITESUR_ICON_REF" https://github.com/vinceliuice/WhiteSur-icon-theme.git \
         "$tmp_dir/WhiteSur-icon-theme" 2>&1 | tee -a "$LOG_FILE"
 
     info "Installing WhiteSur icon theme..."
@@ -386,8 +394,9 @@ install_icons_cursors() {
 
     # Cursors
     info "Cloning WhiteSur-cursors..."
-    git clone --depth=1 https://github.com/vinceliuice/WhiteSur-cursors.git \
-        "$tmp_dir/WhiteSur-cursors" 2>&1 | tee -a "$LOG_FILE"
+    git clone --filter=blob:none https://github.com/vinceliuice/WhiteSur-cursors.git \
+        "$tmp_dir/WhiteSur-cursors" 2>&1 | tee -a "$LOG_FILE" \
+        && git -C "$tmp_dir/WhiteSur-cursors" checkout "$WHITESUR_CURSORS_SHA" 2>&1 | tee -a "$LOG_FILE"
 
     info "Installing WhiteSur cursors..."
     bash "$tmp_dir/WhiteSur-cursors/install.sh" 2>&1 | tee -a "$LOG_FILE" \
@@ -451,7 +460,7 @@ install_wallpapers() {
     trap 'rm -rf "$tmp_dir"' RETURN
 
     info "Cloning WhiteSur-wallpapers..."
-    git clone --depth=1 https://github.com/vinceliuice/WhiteSur-wallpapers.git \
+    git clone --depth=1 --branch "$WHITESUR_WALLPAPERS_REF" https://github.com/vinceliuice/WhiteSur-wallpapers.git \
         "$tmp_dir/WhiteSur-wallpapers" 2>&1 | tee -a "$LOG_FILE"
 
     # El repo usa install-wallpapers.sh o install.sh según la versión del upstream

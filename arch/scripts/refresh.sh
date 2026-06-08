@@ -18,6 +18,10 @@ warn()  { echo -e "${Y}[WARN]${NC}  $1"; }
 
 [[ ! -d "$CONFIGS_DIR" ]] && { echo -e "${R}[FAIL]${NC}  Configs no encontradas: $CONFIGS_DIR"; exit 1; }
 
+# ── Pinned upstream refs (WhiteSur) ──────────────────────────────────────────
+# Bump intencionalmente; clonar HEAD no es reproducible. Ver dependency audit.
+readonly WHITESUR_GTK_REF="2025-07-24"
+
 # ── Kitty + Starship ──────────────────────────────────────────────────────
 refresh_configs() {
     info "Copiando configs de terminal..."
@@ -352,7 +356,7 @@ refresh_gdm() {
     local tmpdir
     tmpdir=$(mktemp -d)
 
-    git clone --depth=1 https://github.com/vinceliuice/WhiteSur-gtk-theme.git "$tmpdir" \
+    git clone --depth=1 --branch "$WHITESUR_GTK_REF" https://github.com/vinceliuice/WhiteSur-gtk-theme.git "$tmpdir" \
         2>&1 | grep -E "Cloning|done\."
 
     (cd "$tmpdir" && sudo ./tweaks.sh -g -nd -b default)
