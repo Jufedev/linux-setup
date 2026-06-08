@@ -13,7 +13,6 @@ R='\033[0;31m'; G='\033[0;32m'; Y='\033[1;33m'; B='\033[0;34m'; C='\033[0;36m'; 
 info()  { echo -e "${B}[INFO]${NC}  $1"; }
 ok()    { echo -e "${G}[OK]${NC}    $1"; }
 warn()  { echo -e "${Y}[WARN]${NC}  $1"; }
-error() { echo -e "${R}[ERROR]${NC} $1" >&2; }
 step()  { echo -e "\n${C}━━━ $1 ━━━${NC}\n"; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

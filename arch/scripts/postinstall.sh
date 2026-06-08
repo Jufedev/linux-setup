@@ -108,6 +108,11 @@ print_summary() {
     echo "  • Cerrá y reabrí sesión para ver el tema y las extensiones"
     echo "  • Parcheá el login estilo macOS con: bash postinstall.sh --gdm"
     echo ""
+
+    # Código de salida no-cero si hubo fallos (útil para CI / scripts llamadores)
+    if [[ ${#FAILED_MODULES[@]} -gt 0 || ${#FAILED_PKGS[@]} -gt 0 ]]; then
+        return 1
+    fi
 }
 
 ensure_yay() {

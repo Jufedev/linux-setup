@@ -1,7 +1,7 @@
 [Appearance]
 ColorScheme=MacOS
 Font=CaskaydiaCove Nerd Font,12,-1,5,400,0,0,0,0,0
-UseFontLineChararacters=false
+UseFontLineCharacters=false
 
 [General]
 Command=/bin/bash

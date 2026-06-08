@@ -409,7 +409,7 @@ with open('$settings', 'w') as f: json.dump(cfg, f, indent=4)
 refresh_wallpaper() {
     local whitesur_xml="$HOME/.local/share/backgrounds/WhiteSur/WhiteSur-timed.xml"
     if [[ ! -f "$whitesur_xml" ]]; then
-        warn "Wallpapers no instalados — corré: bash scripts/postinstall.sh --wallpapers"
+        warn "Wallpapers no instalados — corré: bash arch/scripts/postinstall.sh --wallpapers"
         return
     fi
     gsettings set org.gnome.desktop.background picture-uri "file://${whitesur_xml}"
@@ -426,7 +426,7 @@ refresh_all() {
     refresh_wallpaper
     echo ""
     ok "Refresh completo — configs, dconf, dock-magnify y wallpaper actualizados"
-    info "Para actualizar el GDM corré: bash scripts/refresh.sh --gdm"
+    info "Para actualizar el GDM corré: bash arch/scripts/refresh.sh --gdm"
 }
 
 # ── CLI ───────────────────────────────────────────────────────────────────
@@ -438,5 +438,5 @@ case "${1:-}" in
     --wallpaper)  refresh_wallpaper ;;
     --gdm)        refresh_gdm ;;
     --all|"")     refresh_all ;;
-    *) echo "Uso: $0 [--all | --configs | --dconf | --dock | --ulauncher | --gdm]"; exit 1 ;;
+    *) echo "Uso: $0 [--all | --configs | --dconf | --dock | --ulauncher | --wallpaper | --gdm]"; exit 1 ;;
 esac
