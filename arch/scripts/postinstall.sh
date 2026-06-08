@@ -283,8 +283,23 @@ install_extensions() {
 install_fonts() {
     step "Fuentes del sistema"
 
-    aur_install ttf-inter ttf-jetbrains-mono-nerd
-    pac_install noto-fonts-emoji   # Emojis a color (fallback para navegadores y apps)
+    # Inter: UI general. Cascadia Code Nerd Font (CaskaydiaCove): terminal + glifos Nerd.
+    # Apple Color Emoji: emojis estilo macOS/iOS (build para Linux, paquete AUR).
+    aur_install ttf-inter ttf-apple-emoji
+    pac_install ttf-cascadia-code-nerd
+
+    # Equivalentes libres y métricamente compatibles de las fuentes de Windows
+    # (Arial→Liberation Sans, Times→Liberation Serif, Courier→Liberation Mono,
+    #  Calibri→Carlito, Cambria→Caladea) para que la web renderice como en Windows.
+    pac_install ttf-liberation ttf-carlito ttf-caladea
+
+    # Fallback de emojis a color: encadena Apple Color Emoji a sans/serif/mono.
+    # Sin esto fontconfig no los muestra en navegadores/apps aunque la fuente esté.
+    info "Instalando fallback de emojis (fontconfig)..."
+    mkdir -p "$HOME/.config/fontconfig/conf.d"
+    cp "${SHARED_DIR}/fontconfig/10-emoji-fallback.conf" \
+        "$HOME/.config/fontconfig/conf.d/10-emoji-fallback.conf"
+    fc-cache -f >/dev/null 2>&1 || true
 
     ok "Fuentes instaladas"
 }

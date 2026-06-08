@@ -1,6 +1,6 @@
 [Appearance]
 ColorScheme=MacOS
-Font=JetBrainsMono Nerd Font,12,-1,5,400,0,0,0,0,0
+Font=CaskaydiaCove Nerd Font,12,-1,5,400,0,0,0,0,0
 UseFontLineChararacters=false
 
 [General]

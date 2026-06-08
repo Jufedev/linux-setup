@@ -163,42 +163,71 @@ setup_repos() {
 
 # ── Módulo 2: Fuentes ────────────────────────────────────────────────────────
 install_fonts() {
-    step "Fonts — Inter + JetBrainsMono Nerd Font + Noto Emoji"
+    step "Fonts — Inter + Cascadia Code Nerd Font + Apple Emoji + Windows-equivalent"
 
-    # Inter (UI general) y Noto Emoji vienen directamente de los repos de Fedora.
-    # jetbrains-mono-fonts-all se instala como fallback (no tiene glifos Nerd Font).
+    # Inter (UI general) viene directamente de los repos de Fedora.
+    # Liberation/Carlito/Caladea: equivalentes libres y métricamente compatibles de
+    # las fuentes de Windows (Arial/Times/Courier/Calibri/Cambria) para la web.
     dnf_install \
         rsms-inter-fonts \
-        jetbrains-mono-fonts-all \
-        google-noto-emoji-fonts
+        liberation-sans-fonts \
+        liberation-serif-fonts \
+        liberation-mono-fonts \
+        google-carlito-fonts \
+        google-crosextra-caladea-fonts
 
-    # Instalar la variante Nerd Font de JetBrains Mono desde el release oficial.
-    # El paquete jetbrains-mono-fonts-all NO incluye los glifos de iconos que
-    # necesita Starship — hay que bajar el archivo .tar.xz del proyecto nerd-fonts.
-    local nerd_font_dir="${HOME}/.local/share/fonts/JetBrainsMonoNerd"
-    if fc-list | grep -qi 'JetBrainsMono Nerd'; then
-        info "JetBrainsMono Nerd Font already installed — skipping download"
+    # Instalar la variante Nerd Font de Cascadia Code (CaskaydiaCove) desde el
+    # release oficial de nerd-fonts — trae los glifos de iconos que necesita Starship.
+    local nerd_font_dir="${HOME}/.local/share/fonts/CascadiaCodeNerd"
+    if fc-list | grep -qi 'CaskaydiaCove Nerd'; then
+        info "CaskaydiaCove Nerd Font already installed — skipping download"
     else
-        info "Downloading JetBrainsMono Nerd Font from nerd-fonts releases..."
+        info "Downloading CaskaydiaCove (Cascadia Code) Nerd Font from nerd-fonts releases..."
         local nf_tmp
         nf_tmp="$(mktemp -d)"
         # shellcheck disable=SC2064
         trap "rm -rf '$nf_tmp'" RETURN
-        local nf_archive="${nf_tmp}/JetBrainsMono.tar.xz"
+        local nf_archive="${nf_tmp}/CascadiaCode.tar.xz"
 
         if curl -fsSL \
-            "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/JetBrainsMono.tar.xz" \
+            "https://github.com/ryanoasis/nerd-fonts/releases/latest/download/CascadiaCode.tar.xz" \
             -o "$nf_archive" 2>&1 | tee -a "$LOG_FILE"; then
             mkdir -p "$nerd_font_dir"
             tar -xf "$nf_archive" --wildcards '*.ttf' -C "$nerd_font_dir" \
                 2>&1 | tee -a "$LOG_FILE" \
                 || warn "tar extraction returned non-zero — some font files may be missing"
-            info "JetBrainsMono Nerd Font extracted to $nerd_font_dir"
+            info "CaskaydiaCove Nerd Font extracted to $nerd_font_dir"
         else
-            warn "JetBrainsMono Nerd Font download failed — Starship/powerline glyphs may not render"
-            FAILED_PKGS+=("nerd-fonts:JetBrainsMono")
+            warn "CaskaydiaCove Nerd Font download failed — Starship/powerline glyphs may not render"
+            FAILED_PKGS+=("nerd-fonts:CascadiaCode")
         fi
     fi
+
+    # Apple Color Emoji (estilo macOS/iOS) — no hay paquete en Fedora; se baja el
+    # build para Linux desde samuelngs/apple-emoji-ttf. Reemplaza a Noto (estilo Google).
+    local apple_emoji_dir="${HOME}/.local/share/fonts/AppleColorEmoji"
+    if fc-list | grep -qi 'Apple Color Emoji'; then
+        info "Apple Color Emoji already installed — skipping download"
+    else
+        info "Downloading Apple Color Emoji (Linux build)..."
+        mkdir -p "$apple_emoji_dir"
+        if curl -fsSL \
+            "https://github.com/samuelngs/apple-emoji-ttf/releases/latest/download/AppleColorEmoji-Linux.ttf" \
+            -o "${apple_emoji_dir}/AppleColorEmoji.ttf" 2>&1 | tee -a "$LOG_FILE"; then
+            info "Apple Color Emoji installed to $apple_emoji_dir"
+        else
+            warn "Apple Color Emoji download failed — emoji may not render"
+            FAILED_PKGS+=("apple-color-emoji")
+        fi
+    fi
+
+    # Fallback de emojis a color: encadena Apple Color Emoji a sans/serif/mono.
+    # Sin esto fontconfig no los muestra en navegadores/apps aunque la fuente esté.
+    info "Installing emoji fallback config (fontconfig)..."
+    mkdir -p "${HOME}/.config/fontconfig/conf.d"
+    cp "${SHARED_DIR}/fontconfig/10-emoji-fallback.conf" \
+        "${HOME}/.config/fontconfig/conf.d/10-emoji-fallback.conf" \
+        2>&1 | tee -a "$LOG_FILE" || warn "emoji fallback config copy failed"
 
     # Regenerar caché de fuentes para que las apps vean las nuevas fuentes
     fc-cache -f 2>&1 | tee -a "$LOG_FILE" || warn "fc-cache returned non-zero"
@@ -209,9 +238,9 @@ install_fonts() {
         # Fuente general: Inter 10pt
         kwriteconfig6 --file kdeglobals --group General \
             --key font "Inter,10,-1,5,50,0,0,0,0,0"
-        # Fuente monospace: JetBrainsMono Nerd Font 10pt (con glifos de iconos)
+        # Fuente monospace: CaskaydiaCove Nerd Font 10pt (con glifos de iconos)
         kwriteconfig6 --file kdeglobals --group General \
-            --key fixed "JetBrainsMono Nerd Font,10,-1,5,50,0,0,0,0,0"
+            --key fixed "CaskaydiaCove Nerd Font,10,-1,5,50,0,0,0,0,0"
         ok "KDE font config written — re-login to apply fonts fully"
     else
         warn "kwriteconfig6 not found — skipping KDE font config (run after KDE is installed)"

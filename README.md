@@ -1,12 +1,12 @@
 # linux-setup — Setup estilo macOS
 
-Automatiza la post-instalación de Arch Linux y Fedora con un look macOS completo: tema WhiteSur, fuentes Inter + JetBrains Mono, Kitty, Zsh + Starship, extensiones custom, wallpapers dinámicos y optimizaciones de performance via CachyOS.
+Automatiza la post-instalación de Arch Linux y Fedora con un look macOS completo: tema WhiteSur, fuentes Inter + Cascadia Code, Kitty, Zsh + Starship, extensiones custom, wallpapers dinámicos y optimizaciones de performance via CachyOS.
 
 ## Stack
 
 **Arch Linux + GNOME (mínimo)** · WhiteSur theme · Kitty + Zsh + Starship · Wallpapers dinámicos · CachyOS (kernel BORE + repos optimizados)
 
-**Fedora 42 + KDE Plasma 6** — setup macOS con WhiteSur · Inter/JetBrains Mono · Konsole · KRunner · panel nativo flotante *(ver [fedora/README.md](fedora/README.md))*
+**Fedora 42 + KDE Plasma 6** — setup macOS con WhiteSur · Inter/Cascadia Code · Konsole · KRunner · panel nativo flotante *(ver [fedora/README.md](fedora/README.md))*
 
 ## Estructura
 
@@ -138,7 +138,7 @@ O usar flags directamente:
 | `--gnome` | GNOME mínimo + GDM |
 | `--theme` | Tema WhiteSur (GTK + iconos + cursores + libadwaita) |
 | `--extensions` | Extensiones GNOME + extensiones custom (calendar-tweaks, dock-magnify, panel-tweaks) |
-| `--fonts` | Inter + JetBrainsMono Nerd Font + Noto Color Emoji |
+| `--fonts` | Inter + CaskaydiaCove Nerd Font + Apple Color Emoji + fuentes Windows libres (Liberation/Carlito/Caladea) |
 | `--terminal` | Kitty + Zsh + Starship + plugins |
 | `--spotlight` | Ulauncher + tema macOS Tahoe Dark |
 | `--apps` | Flameshot, Chrome, Edge, ufw, Podman + Distrobox |
@@ -395,7 +395,7 @@ sudo grub-mkconfig -o /boot/grub/grub.cfg
 
 ## Fedora 42 + KDE Plasma 6 — macOS setup
 
-Setup completo para **Fedora 42 KDE Spin**: WhiteSur theme stack (Plasma look-and-feel + Aurorae + Kvantum + icons + cursors + GTK), fuentes Inter + JetBrains Mono, layout macOS de paneles (barra superior + dock inferior) y perfil de Konsole a medida.
+Setup completo para **Fedora 42 KDE Spin**: WhiteSur theme stack (Plasma look-and-feel + Aurorae + Kvantum + icons + cursors + GTK), fuentes Inter + Cascadia Code, layout macOS de paneles (barra superior + dock inferior) y perfil de Konsole a medida.
 
 > **Antes de correr los módulos de temas**: tomá un snapshot de Btrfs como safety net.
 > `sudo btrfs subvolume snapshot / /.snapshots/pre-whitesur-$(date +%F)`

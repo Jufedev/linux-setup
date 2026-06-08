@@ -1,7 +1,7 @@
 # Fedora 42 KDE — macOS-style Setup
 
 Automates a macOS-themed Fedora 42 KDE Plasma 6 desktop: WhiteSur theme stack
-(Plasma + Kvantum + icons + cursors + GTK), Inter fonts, JetBrains Mono, a top
+(Plasma + Kvantum + icons + cursors + GTK), Inter fonts, Cascadia Code, a top
 menu bar + bottom icon dock layout, and a matching Konsole profile. Run as a
 normal user after first boot.
 
@@ -55,7 +55,7 @@ The script is safe to re-run. Each module is idempotent.
 |---|---|
 | `--all` | Runs all modules in dependency order |
 | `--repos` | Enables RPM Fusion free + nonfree, adds Flathub, upgrades system |
-| `--fonts` | Installs Inter, JetBrains Mono, Noto Emoji; applies KDE font config |
+| `--fonts` | Installs Inter, Cascadia Code Nerd Font, Apple Color Emoji, Windows-equivalent fonts; applies KDE font config |
 | `--apps` | Installs flameshot, podman, distrobox, Chrome (Flatpak), enables firewalld |
 | `--themes` | Clones + installs WhiteSur-kde (Plasma look-and-feel + Aurorae) |
 | `--gtk` | Clones + installs WhiteSur-gtk-theme (GTK3/GTK4 + libadwaita link) |
