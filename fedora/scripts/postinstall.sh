@@ -70,18 +70,6 @@ dnf_install() {
     done
 }
 
-# Habilita un repositorio COPR. Idempotente: si ya está habilitado, no falla.
-copr_enable() {
-    local repo="$1"
-    info "Enabling COPR: $repo"
-    if sudo dnf copr enable -y "$repo" 2>&1 | tee -a "$LOG_FILE"; then
-        ok "COPR enabled: $repo"
-    else
-        warn "COPR enable failed: $repo"
-        FAILED_PKGS+=("copr:$repo")
-    fi
-}
-
 # Instala apps de Flathub. Mismo patrón batch→individual que dnf_install.
 flatpak_install() {
     info "Installing (flatpak): $*"
