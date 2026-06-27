@@ -2,8 +2,8 @@
 # ============================================================================
 # Arch Linux — Refresh de configuraciones
 # Aplica cambios de configs sin reinstalar. Ideal para prueba y error.
-# Uso: bash arch/scripts/refresh.sh [--all | --configs | --dconf | --dock | --ulauncher | --wallpaper | --gdm]
-# Sin argumentos = --all (todo excepto GDM)
+# Uso: bash arch/scripts/refresh.sh [--all | --configs | --dconf | --dock | --launcher | --wallpapers | --login]
+# Sin argumentos = --all (todo excepto login)
 # ============================================================================
 set -euo pipefail
 
@@ -362,7 +362,7 @@ refresh_gdm() {
     (cd "$tmpdir" && sudo ./tweaks.sh -g -nd -b default)
     rm -rf "$tmpdir"
 
-    sudo /usr/local/bin/gdm-wallpaper-update 2>/dev/null || warn "gdm-wallpaper-update no instalado — corré postinstall.sh --gdm"
+    sudo /usr/local/bin/gdm-wallpaper-update 2>/dev/null || warn "gdm-wallpaper-update no instalado — corré postinstall.sh --login"
 
     info "Parcheando gresource (panel, logo, avatar, botones, fondo dinámico)..."
     _gdm_patch_css
@@ -426,7 +426,7 @@ refresh_all() {
     refresh_wallpaper
     echo ""
     ok "Refresh completo — configs, dconf, dock-magnify y wallpaper actualizados"
-    info "Para actualizar el GDM corré: bash arch/scripts/refresh.sh --gdm"
+    info "Para actualizar el GDM corré: bash arch/scripts/refresh.sh --login"
 }
 
 # ── CLI ───────────────────────────────────────────────────────────────────
@@ -434,9 +434,9 @@ case "${1:-}" in
     --configs)    refresh_configs ;;
     --dconf)      refresh_dconf ;;
     --dock)       refresh_dock ;;
-    --ulauncher)  refresh_ulauncher ;;
-    --wallpaper)  refresh_wallpaper ;;
-    --gdm)        refresh_gdm ;;
+    --launcher)   refresh_ulauncher ;;
+    --wallpapers) refresh_wallpaper ;;
+    --login)      refresh_gdm ;;
     --all|"")     refresh_all ;;
-    *) echo "Uso: $0 [--all | --configs | --dconf | --dock | --ulauncher | --wallpaper | --gdm]"; exit 1 ;;
+    *) echo "Uso: $0 [--all | --configs | --dconf | --dock | --launcher | --wallpapers | --login]"; exit 1 ;;
 esac

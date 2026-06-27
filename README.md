@@ -65,7 +65,7 @@ linux-setup/
 
 Si algo sale mal, reiniciá y elegí el kernel anterior en GRUB (Fedora guarda los últimos 3).
 
-> Módulos sueltos (`--themes`, `--fonts`, `--panel`, etc.), tabla completa de flags y limitaciones conocidas en **[fedora/README.md](fedora/README.md)**.
+> Módulos sueltos (`--theme`, `--fonts`, `--desktop`, etc.), tabla completa de flags y limitaciones conocidas en **[fedora/README.md](fedora/README.md)**.
 
 ---
 
@@ -97,29 +97,32 @@ cd ~/linux-setup
 bash arch/scripts/postinstall.sh --all
 ```
 
-Instala en orden: CachyOS → hardware → GNOME → tema → extensiones → fuentes → terminal → Ulauncher → apps → wallpapers → ajustes. **Resiliente:** si un paquete falla, lo reintenta solo, lo registra y sigue; al final te muestra un resumen. Log en `~/.local/state/arch-macos-setup.log`.
+Instala en orden: CachyOS → repos → hardware → GNOME → tema → fuentes → terminal → launcher → apps → wallpapers → escritorio → teclado. **Resiliente:** si un paquete falla, lo reintenta solo, lo registra y sigue; al final te muestra un resumen. Log en `~/.local/state/arch-macos-setup.log`.
 
 Sin argumentos abre un **menú interactivo**, o usá flags directos:
+
+> **Flags unificados.** Los flags son **idénticos en Arch y Fedora** y hacen lo mismo en ambas, salvo `--gnome` y `--cachyos`, exclusivos de Arch (Fedora ya trae KDE y no usa CachyOS).
 
 | Flag | Qué instala |
 |------|-------------|
 | `--all` | Todo en orden (recomendado para instalación limpia) |
-| `--gnome` | GNOME mínimo + GDM |
-| `--theme` | Tema WhiteSur (GTK + iconos + cursores) |
-| `--extensions` | Extensiones GNOME + custom |
+| `--repos` | Habilita `multilib` (paquetes de 32 bits, ej. `lib32-nvidia-utils`) |
+| `--hardware` | Microcode + drivers de GPU; NVIDIA con módulos abiertos `nvidia-open-dkms` (Blackwell/RTX 50) |
+| `--gnome` | GNOME mínimo + GDM *(Arch-only)* |
+| `--theme` | Stack visual WhiteSur (GTK + iconos + cursores) |
 | `--fonts` | Cascadia Code + Apple emoji + Inter + fuentes Windows libres |
+| `--desktop` | Layout estilo macOS: extensiones GNOME + ajustes dconf |
 | `--terminal` | Kitty + Zsh + Starship |
-| `--spotlight` | Ulauncher + tema macOS |
+| `--launcher` | Ulauncher + tema macOS |
 | `--apps` | Flameshot, Chrome, Edge, ufw, Podman + Distrobox |
-| `--tweaks` | Config de GNOME: tema, fuentes, extensiones, teclado *(us intl AltGr)* — correr último |
 | `--wallpapers` | Wallpapers dinámicos por hora *(ya en `--all`)* |
-| `--gdm` | Login estilo macOS *(ver Extras)* |
-| `--cachyos` | Repos + kernel optimizados *(ya en `--all`)* |
-| `--hardware` | Microcode + drivers de GPU; NVIDIA usa módulos abiertos `nvidia-open-dkms` para Blackwell/RTX 50 *(ya en `--all`)* |
+| `--keyboard` | Layout `us altgr-intl` (system-wide) |
+| `--login` | Login GDM estilo macOS *(ver Extras)* |
+| `--cachyos` | Repos + kernel optimizados *(Arch-only, ya en `--all`)* |
 
 ### Extras de Arch (opcionales)
 
-- **Login macOS (GDM)** — `bash arch/scripts/postinstall.sh --gdm`. Aplica WhiteSur al login con wallpaper por hora. Va aparte porque requiere sudo + reiniciar GDM.
+- **Login macOS (GDM)** — `bash arch/scripts/postinstall.sh --login`. Aplica WhiteSur al login con wallpaper por hora. Va aparte porque requiere sudo + reiniciar GDM.
 - **Performance (CachyOS)** — ya viene en `--all`: agrega repos compilados para tu CPU (uplift real ~5–20%) + kernel BORE/EEVDF. Reiniciá y elegí `linux-cachyos` en GRUB.
 - **Monitor sin EDID** (resolución cae a `640x480`) — algunos monitores viejos o por adaptador no entregan EDID. Forzá el modo por parámetro de kernel en GRUB (`GRUB_CMDLINE_LINUX_DEFAULT="… video=DP-1:1440x900@60"`, luego `sudo grub-mkconfig -o /boot/grub/grub.cfg`). No va en los scripts porque el conector y la resolución cambian por máquina.
 
@@ -133,7 +136,7 @@ abiertos** de NVIDIA; el propietario clásico ya no las soporta.
 | Distro | Cómo se instala |
 |---|---|
 | Arch | `--hardware` → `nvidia-open-dkms` + `nvidia-utils` + headers, blacklist de nouveau, `nvidia_drm.modeset=1`, early KMS en mkinitcpio |
-| Fedora | `--gpu` → `akmod-nvidia-open` + CUDA/VAAPI, blacklist de nouveau, `nvidia-drm.modeset=1` |
+| Fedora | `--hardware` → `akmod-nvidia-open` + CUDA/VAAPI, blacklist de nouveau, `nvidia-drm.modeset=1` |
 
 Reiniciá y verificá con `nvidia-smi`. Sin placa NVIDIA el módulo es no-op (Mesa ya cubre AMD/Intel).
 
@@ -154,9 +157,8 @@ Para un desktop de una sola GPU, deshabilitalo en BIOS.
 > no exponían el toggle del iGPU de Cezanne.
 
 > **Probar sin la placa.** Para ejercitar el branch NVIDIA en una VM sin GPU:
-> `FORCE_GPU=nvidia bash arch/scripts/postinstall.sh --hardware` (Arch) o
-> `FORCE_GPU=nvidia bash fedora/scripts/postinstall.sh --gpu` (Fedora). Valida que
-> los paquetes resuelvan y que DKMS/akmod compile; el módulo no *carga* sin hardware real.
+> `FORCE_GPU=nvidia bash <distro>/scripts/postinstall.sh --hardware` (mismo flag en ambas).
+> Valida que los paquetes resuelvan y que DKMS/akmod compile; el módulo no *carga* sin hardware real.
 
 Detalle de Secure Boot, firma de módulos y el caveat de suspend en kernel 7.0 en
 **[fedora/README.md](fedora/README.md)**.
@@ -237,7 +239,7 @@ Genera una llave `ed25519` con **passphrase aleatoria**, agrega un bloque `Host 
 | **dock-magnify** *(custom)* | Fish-eye en el dock al pasar el cursor |
 | **panel-tweaks** *(custom)* | Reorganiza el panel superior (ícono Arch, Vitals+clipboard, fecha) |
 
-Las custom están en el repo (`arch/configs/gnome/`) y se instalan solas con `--extensions`.
+Las custom están en el repo (`arch/configs/gnome/`) y se instalan solas con `--desktop`.
 
 ### Fedora — KDE Plasma
 

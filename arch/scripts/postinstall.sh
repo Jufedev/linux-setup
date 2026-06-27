@@ -2,7 +2,8 @@
 # ============================================================================
 # Arch Linux — Setup estilo macOS (GNOME)
 # Ejecutar como usuario normal después del primer boot
-# Uso: bash postinstall.sh [--all | --gnome | --theme | --extensions | --fonts | --terminal | --spotlight | --apps | --tweaks | --wallpapers | --gdm | --cachyos | --hardware]
+# Uso: bash postinstall.sh [--all | --repos | --hardware | --gnome | --theme | --fonts |
+#          --desktop | --terminal | --launcher | --apps | --wallpapers | --keyboard | --login | --cachyos]
 # Sin argumentos = menú interactivo
 # ============================================================================
 set -euo pipefail
@@ -106,7 +107,7 @@ print_summary() {
     echo -e "${G}Pasos finales:${NC}"
     echo "  • Reiniciá para bootear el kernel CachyOS (elegilo en GRUB si no es el default)"
     echo "  • Cerrá y reabrí sesión para ver el tema y las extensiones"
-    echo "  • Parcheá el login estilo macOS con: bash postinstall.sh --gdm"
+    echo "  • Parcheá el login estilo macOS con: bash postinstall.sh --login"
     echo ""
 
     # Código de salida no-cero si hubo fallos (útil para CI / scripts llamadores)
@@ -241,7 +242,7 @@ install_theme() {
     rm -rf "$whitesur_tmp"
     ok "Override GTK4/libadwaita Dark aplicado (botones macOS en todas las ventanas)"
 
-    info "Para parchear GDM: corré --gdm"
+    info "Para parchear GDM: corré --login"
 }
 
 install_extensions() {
@@ -370,8 +371,8 @@ ZSHRC
     ok "Terminal configurada"
 }
 
-install_spotlight() {
-    step "Ulauncher (Spotlight equivalent)"
+install_launcher() {
+    step "Launcher — Ulauncher (Spotlight equivalent)"
 
     aur_install ulauncher
 
@@ -519,10 +520,6 @@ apply_tweaks() {
     info "Cargando configuración GNOME desde gnome-macos.dconf..."
     dconf load / < "${CONFIGS_DIR}/gnome/gnome-macos.dconf"
 
-    # Layout de teclado system-wide (login GDM + sesión): English intl, AltGr dead keys
-    sudo localectl set-x11-keymap us "" altgr-intl 2>&1 | tee -a "$LOG_FILE" \
-        || warn "localectl set-x11-keymap falló (layout solo aplicará en la sesión GNOME)"
-
     if command -v gnome-extensions &>/dev/null; then
         info "Activando extensiones..."
         local exts=(
@@ -547,7 +544,7 @@ apply_tweaks() {
     _install_app_grid_icon
     _overview_patch_css
 
-    ok "Configuración GNOME aplicada (tema, fuentes, extensiones, touchpad, layout)"
+    ok "Configuración GNOME aplicada (tema, fuentes, extensiones)"
 }
 
 install_wallpapers() {
@@ -802,7 +799,7 @@ UNIT
     ok "Wallpaper dinámico configurado (actualiza al bootear y cada hora)"
 }
 
-apply_gdm() {
+apply_login() {
     step "Login — GDM estilo macOS con wallpaper dinámico"
 
     _gdm_ensure_wallpapers
@@ -975,23 +972,58 @@ install_cachyos_repos() {
 # MENÚ PRINCIPAL
 # ============================================================================
 
+# Repos extra de paquetes. En Arch: habilita [multilib] (paquetes de 32 bits,
+# ej. lib32-nvidia-utils para Steam/Wine). Análogo a --repos de Fedora (RPM Fusion).
+setup_repos() {
+    step "Repos — habilitar multilib (paquetes de 32 bits)"
+
+    if grep -qE '^\[multilib\]' /etc/pacman.conf; then
+        info "multilib ya está habilitado"
+    else
+        info "Habilitando [multilib] en /etc/pacman.conf..."
+        sudo sed -i '/^#\[multilib\]/,/^#Include/ s/^#//' /etc/pacman.conf
+        sudo pacman -Sy 2>&1 | tee -a "$LOG_FILE" || warn "pacman -Sy falló tras habilitar multilib"
+    fi
+
+    ok "Repos configurados (multilib)"
+}
+
+# Layout de teclado system-wide: English intl (AltGr dead keys). Mismo concepto
+# y resultado que --keyboard de Fedora (ambos usan localectl).
+configure_keyboard() {
+    step "Teclado — English intl (AltGr dead keys)"
+
+    sudo localectl set-x11-keymap us "" altgr-intl 2>&1 | tee -a "$LOG_FILE" \
+        || warn "localectl set-x11-keymap falló"
+
+    ok "Teclado configurado (us, altgr-intl)"
+}
+
+# Layout de escritorio estilo macOS. En GNOME: extensiones + ajustes dconf.
+# Mismo concepto que --desktop de Fedora (panel layout de KDE).
+configure_desktop() {
+    install_extensions
+    apply_tweaks
+}
+
 run_all() {
     ensure_yay
 
     # CachyOS PRIMERO: agrega los repos optimizados (x86-64-v3/v4) antes de instalar
     # nada, así GNOME, mesa y el resto se bajan ya compilados para tu CPU.
     # El kernel BORE/EEVDF queda instalado y se activa al reiniciar.
-    run_module "CachyOS (repos + kernel)" install_cachyos_repos
+    run_module "CachyOS (repos + kernel)"   install_cachyos_repos
+    run_module "Repos (multilib)"           setup_repos
     run_module "Hardware (microcode + GPU)" install_hardware
-    run_module "GNOME base"               install_gnome
-    run_module "Tema WhiteSur"            install_theme
-    run_module "Extensiones GNOME"        install_extensions
-    run_module "Fuentes"                  install_fonts
-    run_module "Terminal"                 install_terminal
-    run_module "Ulauncher"               install_spotlight
-    run_module "Apps + dev"              install_apps
-    run_module "Wallpapers"              install_wallpapers
-    run_module "Ajustes GNOME (dconf)"   apply_tweaks
+    run_module "GNOME base"                 install_gnome
+    run_module "Tema WhiteSur"              install_theme
+    run_module "Fuentes"                    install_fonts
+    run_module "Terminal"                   install_terminal
+    run_module "Launcher (Ulauncher)"       install_launcher
+    run_module "Apps + dev"                 install_apps
+    run_module "Wallpapers"                 install_wallpapers
+    run_module "Escritorio (extensiones + ajustes)" configure_desktop
+    run_module "Teclado"                    configure_keyboard
 
     print_summary
 }
@@ -1004,36 +1036,38 @@ show_menu() {
         echo -e "${C}║  Arch Linux — Setup estilo macOS                    ║${NC}"
         echo -e "${C}╚══════════════════════════════════════════════════════╝${NC}\n"
         echo "  1) Instalar todo — incluye CachyOS (recomendado)"
-        echo "  2) Solo GNOME base"
-        echo "  3) Solo tema WhiteSur"
-        echo "  4) Solo extensiones GNOME"
-        echo "  5) Solo fuentes"
-        echo "  6) Solo terminal (Kitty + Zsh + Starship)"
-        echo "  7) Solo Ulauncher"
-        echo "  8) Solo apps"
-        echo "  9) Solo ajustes finales"
+        echo "  2) Repos (multilib)"
+        echo "  3) Hardware (microcode + GPU NVIDIA)"
+        echo "  4) GNOME base"
+        echo "  5) Tema WhiteSur"
+        echo "  6) Fuentes"
+        echo "  7) Escritorio (extensiones + ajustes)"
+        echo "  8) Terminal (Kitty + Zsh + Starship)"
+        echo "  9) Launcher (Ulauncher)"
+        echo "  a) Apps"
         echo "  w) Wallpapers dinámicos (cambian por hora)"
-        echo "  g) Login GDM estilo macOS (solo botón apagado)"
-        echo "  c) Solo CachyOS repos + kernel BORE (ya incluido en 'todo')"
-        echo "  h) Solo hardware (microcode + drivers de GPU)"
+        echo "  k) Teclado (us altgr-intl)"
+        echo "  l) Login GDM estilo macOS"
+        echo "  c) CachyOS repos + kernel BORE (ya incluido en 'todo')"
         echo "  0) Salir"
         echo ""
         read -rp "Selecciona una opción: " choice
 
         case $choice in
             1) run_all; break ;;
-            2) install_gnome; break ;;
-            3) install_theme; break ;;
-            4) install_extensions; break ;;
-            5) install_fonts; break ;;
-            6) install_terminal; break ;;
-            7) install_spotlight; break ;;
-            8) install_apps; break ;;
-            9) apply_tweaks; break ;;
+            2) setup_repos; break ;;
+            3) install_hardware; break ;;
+            4) install_gnome; break ;;
+            5) install_theme; break ;;
+            6) install_fonts; break ;;
+            7) configure_desktop; break ;;
+            8) install_terminal; break ;;
+            9) install_launcher; break ;;
+            a) install_apps; break ;;
             w) install_wallpapers; break ;;
-            g) apply_gdm; break ;;
+            k) configure_keyboard; break ;;
+            l) apply_login; break ;;
             c) install_cachyos_repos; break ;;
-            h) install_hardware; break ;;
             0) exit 0 ;;
             *) warn "Opción inválida" ;;
         esac
@@ -1043,18 +1077,19 @@ show_menu() {
 # ── CLI args ───────────────────────────────────────────────────────────────
 case "${1:-}" in
     --all)        ensure_yay; run_all ;;
+    --repos)      setup_repos ;;
+    --hardware)   install_hardware ;;
     --gnome)      ensure_yay; install_gnome ;;
     --theme)      ensure_yay; install_theme ;;
-    --extensions) ensure_yay; install_extensions ;;
     --fonts)      ensure_yay; install_fonts ;;
+    --desktop)    ensure_yay; configure_desktop ;;
     --terminal)   ensure_yay; install_terminal ;;
-    --spotlight)  ensure_yay; install_spotlight ;;
+    --launcher)   ensure_yay; install_launcher ;;
     --apps)       ensure_yay; install_apps ;;
-    --tweaks)      apply_tweaks ;;
-    --wallpapers)  install_wallpapers ;;
-    --gdm)         apply_gdm ;;
-    --cachyos)     install_cachyos_repos ;;
-    --hardware)    install_hardware ;;
-    "")            show_menu ;;
-    *)             echo "Uso: $0 [--all|--gnome|--theme|--extensions|--fonts|--terminal|--spotlight|--apps|--tweaks|--wallpapers|--gdm|--cachyos|--hardware]"; exit 1 ;;
+    --wallpapers) install_wallpapers ;;
+    --keyboard)   configure_keyboard ;;
+    --login)      apply_login ;;
+    --cachyos)    install_cachyos_repos ;;
+    "")           show_menu ;;
+    *)            echo "Uso: $0 [--all|--repos|--hardware|--gnome|--theme|--fonts|--desktop|--terminal|--launcher|--apps|--wallpapers|--keyboard|--login|--cachyos]"; exit 1 ;;
 esac

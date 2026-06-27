@@ -51,31 +51,34 @@ The script is safe to re-run. Each module is idempotent.
 
 ## Module Reference
 
+> **Unified flags.** The flag set is **identical to the Arch setup** and each flag
+> does the same thing on both. `--launcher` and `--login` are no-ops on Fedora
+> (KRunner and SDDM are native), kept for parity. Arch's `--gnome` and `--cachyos`
+> have no Fedora equivalent (KDE ships with the spin; CachyOS is Arch-only).
+
 | Flag | What it does |
 |---|---|
 | `--all` | Runs all modules in dependency order |
 | `--repos` | Enables RPM Fusion free + nonfree, adds Flathub, upgrades system |
-| `--gpu` | Installs NVIDIA open kernel modules (`akmod-nvidia-open`) for Blackwell/RTX 50 cards; blacklists nouveau, enables KMS. No-op without an NVIDIA card. See [NVIDIA Dedicated GPU](#nvidia-dedicated-gpu-blackwell--rtx-50) |
+| `--hardware` | Microcode + NVIDIA open kernel modules (`akmod-nvidia-open`) for Blackwell/RTX 50; blacklists nouveau, enables KMS. No-op without an NVIDIA card. See [NVIDIA Dedicated GPU](#nvidia-dedicated-gpu-blackwell--rtx-50) |
 | `--fonts` | Installs Inter, Cascadia Code Nerd Font, Apple Color Emoji, Windows-equivalent fonts; applies KDE font config |
+| `--theme` | Full WhiteSur visual stack: Plasma look-and-feel + Aurorae + GTK + Kvantum + icons + cursors |
+| `--desktop` | Applies macOS panel layout (top bar + bottom dock) via Plasma Scripting API; clock shows 24h + date |
+| `--terminal` | Installs MacOS Konsole profile and color scheme, sets as default |
+| `--launcher` | KRunner is native to KDE — no-op (Meta or Alt+Space) |
 | `--apps` | Installs flameshot, podman, distrobox, Chrome + Edge (Flatpak), enables firewalld |
-| `--themes` | Clones + installs WhiteSur-kde (Plasma look-and-feel + Aurorae) |
-| `--gtk` | Clones + installs WhiteSur-gtk-theme (GTK3/GTK4 + libadwaita link) |
-| `--kvantum` | Installs Kvantum, sets WhiteSurDark widget style |
-| `--icons` | Clones + installs WhiteSur icons and cursors |
-| `--decorations` | Configures Aurorae window decorations, macOS left-side buttons |
 | `--wallpapers` | Clones + installs WhiteSur wallpapers, sets default background |
-| `--panel` | Applies macOS panel layout (top bar + bottom dock) via Plasma Scripting API; clock shows 24h + date |
-| `--konsole` | Installs MacOS Konsole profile and color scheme, sets as default |
 | `--keyboard` | Sets English intl (AltGr dead keys) keyboard layout (KDE session + system-wide via localectl) |
+| `--login` | SDDM theming intentionally skipped — no-op |
 
 ## NVIDIA Dedicated GPU (Blackwell / RTX 50)
 
-The `--gpu` module installs the **open kernel modules** (`akmod-nvidia-open`) —
+The `--hardware` module installs the **open kernel modules** (`akmod-nvidia-open`) —
 the only supported option for Blackwell cards (RTX 50 series, e.g. RTX 5060 Ti).
 The legacy proprietary module no longer supports this architecture.
 
 ```bash
-bash fedora/scripts/postinstall.sh --gpu
+bash fedora/scripts/postinstall.sh --hardware
 ```
 
 It installs `akmod-nvidia-open` + CUDA/VAAPI support, blacklists nouveau, sets
@@ -84,7 +87,7 @@ verify with `nvidia-smi`. Without an NVIDIA card the module is a no-op (Mesa
 already covers AMD/Intel on Fedora).
 
 > **Test without the card.** To exercise the NVIDIA path in a VM that has no
-> NVIDIA GPU, force the branch: `FORCE_GPU=nvidia bash fedora/scripts/postinstall.sh --gpu`.
+> NVIDIA GPU, force the branch: `FORCE_GPU=nvidia bash fedora/scripts/postinstall.sh --hardware`.
 > This validates package resolution and the akmod build; the module won't *load*
 > without real hardware.
 
@@ -137,6 +140,6 @@ If you move to a 7.0 kernel and resume hangs, fall back to a 6.17/LTS kernel.
 After `--all` completes:
 
 1. Log out and back in to apply font and theme changes fully.
-2. If the panel layout looks off, re-run: `bash fedora/scripts/postinstall.sh --panel`
+2. If the panel layout looks off, re-run: `bash fedora/scripts/postinstall.sh --desktop`
 3. Open Konsole → Settings → Edit Current Profile → confirm **MacOS** is selected.
 4. Check the summary output for any failed modules and re-run them individually.

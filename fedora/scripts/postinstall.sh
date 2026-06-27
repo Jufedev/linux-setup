@@ -2,8 +2,8 @@
 # ============================================================================
 # Fedora 42 + KDE Plasma 6 — Setup estilo macOS
 # Ejecutar como usuario normal después del primer boot
-# Uso: bash postinstall.sh [--all | --repos | --gpu | --fonts | --apps | --themes |
-#          --gtk | --kvantum | --icons | --decorations | --wallpapers | --panel | --konsole | --keyboard]
+# Uso: bash postinstall.sh [--all | --repos | --hardware | --fonts | --theme |
+#          --desktop | --terminal | --launcher | --apps | --wallpapers | --keyboard | --login]
 # Sin argumentos = muestra el uso
 # ============================================================================
 set -euo pipefail
@@ -116,7 +116,7 @@ print_summary() {
     echo ""
     echo -e "${G}Next steps:${NC}"
     echo "  • Log out and back in to see the full theme and font changes"
-    echo "  • If panel layout looks off, re-run: bash postinstall.sh --panel"
+    echo "  • If panel layout looks off, re-run: bash postinstall.sh --desktop"
     echo ""
 
     # Salir con código de error si hubo fallos (útil para CI / scripts llamadores)
@@ -486,7 +486,7 @@ install_wallpapers() {
 # Aplica el layout macOS (barra superior + dock inferior) vía Plasma Scripting API.
 # El JS borra los paneles existentes y los reconstruye → idempotente pero DESTRUCTIVO
 # para customizaciones manuales (se documenta en panel-layout.js y en el README).
-apply_panel_layout() {
+configure_desktop() {
     step "Panel layout — macOS-style (top bar + bottom dock)"
 
     local panel_js="${CONFIGS_DIR}/kde/panel-layout.js"
@@ -497,7 +497,7 @@ apply_panel_layout() {
     fi
 
     if [[ -z "$QDBUS" ]]; then
-        warn "QDBUS not found — skipping panel layout (run --panel after login)"
+        warn "QDBUS not found — skipping panel layout (run --desktop after login)"
         return 0
     fi
 
@@ -513,7 +513,7 @@ apply_panel_layout() {
 # ── Módulo 10: Konsole profile ───────────────────────────────────────────────
 # Copia el perfil y el esquema de color MacOS a ~/.local/share/konsole/
 # y configura Konsole para usarlo como perfil por defecto.
-install_konsole_profile() {
+install_terminal() {
     step "Konsole — MacOS profile + color scheme"
 
     local konsole_src="${CONFIGS_DIR}/kde/konsole"
@@ -572,9 +572,16 @@ configure_keyboard() {
 # Driver NVIDIA para placas dedicadas. Blackwell (RTX serie 50, ej. 5060 Ti)
 # REQUIERE los módulos abiertos (akmod-nvidia-open); el módulo propietario clásico
 # ya no soporta esta arquitectura. Detección por lspci; para testear en VM sin la
-# placa real, forzá el branch con: FORCE_GPU=nvidia bash postinstall.sh --gpu
-configure_gpu() {
-    step "GPU — driver NVIDIA (módulos abiertos)"
+# placa real, forzá el branch con: FORCE_GPU=nvidia bash postinstall.sh --hardware
+configure_hardware() {
+    step "Hardware — microcode del CPU + driver de GPU"
+
+    # Microcode: en Fedora el de AMD viene en linux-firmware; el de Intel en microcode_ctl.
+    if grep -q "GenuineIntel" /proc/cpuinfo; then
+        dnf_install microcode_ctl
+    else
+        info "Microcode AMD incluido en linux-firmware (nada que instalar)"
+    fi
 
     command -v lspci &>/dev/null || dnf_install pciutils
 
@@ -635,43 +642,63 @@ configure_gpu() {
     ok "GPU NVIDIA configurada — reiniciá y verificá con: nvidia-smi"
 }
 
+# Stack visual WhiteSur completo (Plasma + Aurorae + GTK + Kvantum + iconos +
+# cursores). Mismo concepto y resultado que --theme de Arch. Cada sub-paso corre
+# aislado vía run_module para que un fallo no tumbe al resto.
+install_theme() {
+    run_module "WhiteSur themes"     install_whitesur_themes
+    run_module "WhiteSur GTK theme"  install_whitesur_gtk
+    run_module "Kvantum"             apply_kvantum
+    run_module "Icons + cursors"     install_icons_cursors
+    run_module "Window decorations"  apply_window_decorations
+}
+
+# Lanzador tipo Spotlight. KDE ya trae KRunner nativo — no hay nada que instalar.
+# Existe por paridad con Arch (--launcher = Ulauncher).
+install_launcher() {
+    step "Launcher — KRunner (nativo)"
+    ok "KRunner ya viene con KDE Plasma — nada que instalar (Meta o Alt+Space)"
+}
+
+# Tema de pantalla de login. En Fedora el theming de SDDM se saltea a propósito
+# (deprecado en Fedora 44+). Existe por paridad con Arch (--login = GDM).
+apply_login() {
+    step "Login — SDDM (omitido)"
+    warn "El theming de SDDM se saltea a propósito (deprecado en Fedora 44+). Sin cambios."
+}
+
 # ── run_all ──────────────────────────────────────────────────────────────────
 run_all() {
     run_module "Repos (RPM Fusion + Flathub)" setup_repos
-    run_module "GPU (NVIDIA open modules)"     configure_gpu
-    run_module "Fonts"                         install_fonts
-    run_module "Apps + dev + firewall"         install_apps
-    run_module "WhiteSur themes"               install_whitesur_themes
-    run_module "WhiteSur GTK theme"            install_whitesur_gtk
-    run_module "Kvantum"                       apply_kvantum
-    run_module "Icons + cursors"               install_icons_cursors
-    run_module "Window decorations"            apply_window_decorations
-    run_module "Wallpapers"                    install_wallpapers
-    run_module "Panel layout"                  apply_panel_layout
-    run_module "Konsole profile"               install_konsole_profile
-    run_module "Keyboard layout"               configure_keyboard
+    run_module "Hardware (microcode + GPU)"   configure_hardware
+    install_theme   # umbrella: corre sus sub-pasos con run_module propio
+    run_module "Fonts"                        install_fonts
+    run_module "Terminal (Konsole)"           install_terminal
+    run_module "Launcher (KRunner native)"    install_launcher
+    run_module "Apps + dev + firewall"        install_apps
+    run_module "Wallpapers"                   install_wallpapers
+    run_module "Desktop (panel layout)"       configure_desktop
+    run_module "Keyboard"                     configure_keyboard
 
     print_summary
 }
 
 # ── CLI args ─────────────────────────────────────────────────────────────────
 case "${1:-}" in
-    --all)         run_all ;;
-    --repos)       run_module "Repos (RPM Fusion + Flathub)" setup_repos;         print_summary ;;
-    --gpu)         run_module "GPU (NVIDIA open modules)"     configure_gpu;        print_summary ;;
-    --fonts)       run_module "Fonts"                         install_fonts;        print_summary ;;
-    --apps)        run_module "Apps + dev + firewall"         install_apps;         print_summary ;;
-    --themes)      run_module "WhiteSur themes"               install_whitesur_themes; print_summary ;;
-    --gtk)         run_module "WhiteSur GTK theme"            install_whitesur_gtk; print_summary ;;
-    --kvantum)     run_module "Kvantum"                       apply_kvantum;        print_summary ;;
-    --icons)       run_module "Icons + cursors"               install_icons_cursors; print_summary ;;
-    --decorations) run_module "Window decorations"            apply_window_decorations; print_summary ;;
-    --wallpapers)  run_module "Wallpapers"                    install_wallpapers;   print_summary ;;
-    --panel)       run_module "Panel layout"                  apply_panel_layout;   print_summary ;;
-    --konsole)     run_module "Konsole profile"               install_konsole_profile; print_summary ;;
-    --keyboard)    run_module "Keyboard layout"               configure_keyboard;       print_summary ;;
+    --all)        run_all ;;
+    --repos)      run_module "Repos (RPM Fusion + Flathub)" setup_repos;       print_summary ;;
+    --hardware)   run_module "Hardware (microcode + GPU)"   configure_hardware; print_summary ;;
+    --fonts)      run_module "Fonts"                        install_fonts;      print_summary ;;
+    --theme)      install_theme;                                                print_summary ;;
+    --desktop)    run_module "Desktop (panel layout)"       configure_desktop;  print_summary ;;
+    --terminal)   run_module "Terminal (Konsole)"           install_terminal;   print_summary ;;
+    --launcher)   run_module "Launcher (KRunner native)"    install_launcher;   print_summary ;;
+    --apps)       run_module "Apps + dev + firewall"        install_apps;       print_summary ;;
+    --wallpapers) run_module "Wallpapers"                   install_wallpapers; print_summary ;;
+    --keyboard)   run_module "Keyboard"                     configure_keyboard; print_summary ;;
+    --login)      run_module "Login (SDDM skipped)"         apply_login;        print_summary ;;
     *)
-        echo "Usage: $0 [--all | --repos | --gpu | --fonts | --apps | --themes | --gtk | --kvantum | --icons | --decorations | --wallpapers | --panel | --konsole | --keyboard]"
+        echo "Usage: $0 [--all | --repos | --hardware | --fonts | --theme | --desktop | --terminal | --launcher | --apps | --wallpapers | --keyboard | --login]"
         exit 0
         ;;
 esac
