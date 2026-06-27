@@ -423,13 +423,23 @@ install_apps() {
     pac_install flameshot
     aur_install google-chrome microsoft-edge-stable-bin
 
-    # Firewall
+    # Firewall — deny incoming, allow outgoing. Guardas explícitas: una feature de
+    # seguridad NO debe fallar en silencio (set -e está suprimido bajo run_module).
     pac_install ufw
-    sudo ufw default deny incoming
-    sudo ufw default allow outgoing
-    sudo ufw --force enable
-    sudo systemctl enable ufw
-    ok "Firewall (ufw) configurado — deny incoming, allow outgoing"
+    if command -v ufw &>/dev/null; then
+        sudo ufw default deny incoming  2>&1 | tee -a "$LOG_FILE" || warn "ufw: falló 'default deny incoming'"
+        sudo ufw default allow outgoing 2>&1 | tee -a "$LOG_FILE" || warn "ufw: falló 'default allow outgoing'"
+        # 'ufw --force enable' ya activa el servicio en boot (no hace falta systemctl enable).
+        sudo ufw --force enable         2>&1 | tee -a "$LOG_FILE" || warn "ufw: falló al habilitar"
+        # Verificación real del estado (no asumir éxito).
+        if sudo ufw status 2>/dev/null | grep -qi '^Status: active'; then
+            ok "Firewall (ufw) ACTIVO — deny incoming, allow outgoing"
+        else
+            warn "Firewall (ufw) instalado pero NO activo — revisá: sudo ufw status"
+        fi
+    else
+        warn "ufw no se instaló — el firewall NO quedó configurado"
+    fi
 
     # Containers para desarrollo
     pac_install podman distrobox

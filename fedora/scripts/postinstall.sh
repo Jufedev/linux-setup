@@ -256,16 +256,27 @@ install_apps() {
 
     ok "flameshot + podman + distrobox installed"
 
-    # Firewall (firewalld viene con Fedora KDE spin pero puede estar desactivado)
+    # Firewall — firewalld viene con el KDE spin. Su zona por defecto en Fedora
+    # (FedoraWorkstation) deja ABIERTOS los puertos 1025-65535 entrantes; la
+    # cambiamos a 'public' para igualar la postura de Arch (deny incoming).
+    command -v firewall-cmd &>/dev/null || dnf_install firewalld
     if command -v firewall-cmd &>/dev/null; then
         info "Enabling firewalld..."
         sudo systemctl enable --now firewalld 2>&1 | tee -a "$LOG_FILE" \
             || warn "firewalld enable returned non-zero (may already be running)"
-        ok "firewalld enabled"
+
+        info "Setting default zone to 'public' (deny incoming except ssh/dhcpv6/mdns)..."
+        sudo firewall-cmd --set-default-zone=public 2>&1 | tee -a "$LOG_FILE" \
+            || warn "could not set default zone to public"
+
+        # Verificación real del estado vía exit code ('--state' devuelve 0 solo si corre).
+        if sudo firewall-cmd --state &>/dev/null; then
+            ok "Firewall (firewalld) ACTIVO — zona '$(sudo firewall-cmd --get-default-zone 2>/dev/null)'"
+        else
+            warn "firewalld instalado pero NO running — revisá: sudo firewall-cmd --state"
+        fi
     else
-        dnf_install firewalld
-        sudo systemctl enable --now firewalld 2>&1 | tee -a "$LOG_FILE" || true
-        ok "firewalld installed and enabled"
+        warn "firewalld no se instaló — el firewall NO quedó configurado"
     fi
 
     # Apps de Flatpak (navegadores — Flatpak es la forma recomendada en Fedora inmutable/atómica)

@@ -66,7 +66,7 @@ The script is safe to re-run. Each module is idempotent.
 | `--desktop` | Applies macOS panel layout (top bar + bottom dock) via Plasma Scripting API; clock shows 24h + date |
 | `--terminal` | Installs MacOS Konsole profile and color scheme, sets as default |
 | `--launcher` | KRunner is native to KDE — no-op (Meta or Alt+Space) |
-| `--apps` | Installs flameshot, podman, distrobox, Chrome + Edge (Flatpak), enables firewalld |
+| `--apps` | Installs flameshot, podman, distrobox, Chrome + Edge (Flatpak); enables firewalld and sets the default zone to `public` (deny incoming) |
 | `--wallpapers` | Clones + installs WhiteSur wallpapers, sets default background |
 | `--keyboard` | Sets English intl (AltGr dead keys) keyboard layout (KDE session + system-wide via localectl) |
 | `--login` | SDDM theming intentionally skipped — no-op |
@@ -133,6 +133,7 @@ If you move to a 7.0 kernel and resume hangs, fall back to a 6.17/LTS kernel.
 | Dock zoom effect | The Parabolic zoom widget (macOS-like magnification) requires an unmaintained community plugin. The native Icons-Only Task Manager dock is used instead — no zoom. |
 | Panel layout script | `panel-layout.js` uses the Plasma 6 Desktop Scripting API. It clears and rebuilds all panels on each run — manual panel customizations are reset. Re-test after a major Plasma version upgrade. |
 | Global menu (GTK apps) | The `org.kde.plasma.appmenu` widget works natively for KDE/Qt apps. GTK app menus require `appmenu-gtk3-module` (install via `dnf install appmenu-gtk3-module`). |
+| Firewall (deny incoming) | `--apps` sets firewalld's default zone to `public` (deny incoming except ssh/dhcpv6/mdns), matching the Arch setup. Fedora's stock `FedoraWorkstation` zone leaves ports 1025-65535 open — that is overridden. **KDE Connect / LAN file sharing need their ports opened manually** (e.g. `sudo firewall-cmd --permanent --add-service=kdeconnect && sudo firewall-cmd --reload`). |
 | Headless / CI runs | Modules 4–10 apply Plasma config and may print warnings when no graphical session is active. The script continues and returns the correct exit code. |
 
 ## Next Steps

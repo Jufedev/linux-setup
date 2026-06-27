@@ -114,7 +114,7 @@ Sin argumentos abre un **menú interactivo**, o usá flags directos:
 | `--desktop` | Layout estilo macOS: extensiones GNOME + ajustes dconf |
 | `--terminal` | Kitty + Zsh + Starship |
 | `--launcher` | Ulauncher + tema macOS |
-| `--apps` | Flameshot, Chrome, Edge, ufw, Podman + Distrobox |
+| `--apps` | Flameshot, Chrome, Edge, Podman + Distrobox, firewall *(deny incoming)* |
 | `--wallpapers` | Wallpapers dinámicos por hora *(ya en `--all`)* |
 | `--keyboard` | Layout `us altgr-intl` (system-wide) |
 | `--login` | Login GDM estilo macOS *(ver Extras)* |
