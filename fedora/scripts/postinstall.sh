@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# Fedora 42 + KDE Plasma 6 — Setup estilo macOS
+# Fedora 44 + KDE Plasma 6 — Setup estilo macOS
 # Ejecutar como usuario normal después del primer boot
 # Uso: bash postinstall.sh [--all | --repos | --hardware | --fonts | --theme |
 #          --desktop | --terminal | --launcher | --apps | --wallpapers | --keyboard | --login]
@@ -31,7 +31,7 @@ FAILED_MODULES=()
 [[ ! -d "$CONFIGS_DIR" ]] && { warn "Directorio de configs no encontrado: $CONFIGS_DIR — continuando de todos modos"; }
 
 # ── Resolver qdbus6 ──────────────────────────────────────────────────────────
-# Fedora 42 puede tenerlo como qdbus6, qdbus-qt6 o qdbus según el build.
+# Fedora puede tenerlo como qdbus6, qdbus-qt6 o qdbus según el build.
 # Exportamos $QDBUS para que todos los módulos lo usen sin repetir esta lógica.
 QDBUS=""
 for _qd in qdbus6 qdbus-qt6 qdbus; do

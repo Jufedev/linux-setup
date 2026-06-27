@@ -1,6 +1,6 @@
-# Fedora 42 KDE — macOS-style Setup
+# Fedora 44 KDE — macOS-style Setup
 
-Automates a macOS-themed Fedora 42 KDE Plasma 6 desktop: WhiteSur theme stack
+Automates a macOS-themed Fedora 44 KDE Plasma 6 desktop: WhiteSur theme stack
 (Plasma + Kvantum + icons + cursors + GTK), Inter fonts, Cascadia Code, a top
 menu bar + bottom icon dock layout, and a matching Konsole profile. Run as a
 normal user after first boot.
@@ -29,11 +29,11 @@ sudo timeshift --create --comments "pre-whitesur"
 
 | Requirement | Notes |
 |---|---|
-| Fedora 42 KDE Spin | KDE Plasma 6.4+. Other spins untested. |
+| Fedora 44 KDE | KDE Plasma 6.x. Works on 42/43 too (scripts use `rpm -E %fedora`). |
 | Normal user with sudo | Do **not** run as root. |
 | Live Plasma session | Panel/wallpaper commands require a running Plasma session. Theming-only modules (fonts, GTK) work headless. |
 | Internet connection | Clones WhiteSur repos from GitHub. ~200 MB total. |
-| `git` installed | Pre-installed on Fedora 42. |
+| `git` installed | Pre-installed on Fedora. |
 
 ## Quick Start
 
@@ -120,9 +120,19 @@ sudo mokutil --import /etc/pki/akmods/certs/public_key.der   # set a one-time pa
 
 ### Kernel 7.0 suspend caveat
 
-Blackwell + nvidia-open has a known s2idle suspend/resume regression on Linux 7.0
-(unfixed as of mid-2026). Fedora 42 (kernel 6.14) and 43 (6.17) are unaffected.
-If you move to a 7.0 kernel and resume hangs, fall back to a 6.17/LTS kernel.
+NVIDIA Blackwell + nvidia-open has a known s2idle suspend/resume regression on
+**Linux kernel 7.0** (unfixed as of mid-2026; reproduced on 7.0.4 and 7.0.9,
+affects RTX 40 and 50 series). The trigger is the **kernel version, not the
+Fedora release**:
+
+- Fedora 44 ships **kernel 6.19** (safe) but pulls 7.0 via updates — a fully
+  updated F44 likely runs 7.0.x. The `--repos` module runs `dnf upgrade`, so a
+  fresh setup may land on 7.0.
+- Fedora 42 (6.14) and 43 (6.17) are unaffected.
+
+On a **desktop** the impact is low (you rarely suspend). If resume hangs, boot a
+6.x kernel from the GRUB menu (Fedora keeps the last 3) or pin one until the
+driver fix lands.
 
 ## Known Limitations
 

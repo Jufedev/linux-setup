@@ -1,6 +1,6 @@
 # linux-setup — Escritorio Linux con look macOS
 
-Setup automatizado para dejar **Fedora 42 + KDE** o **Arch + GNOME** con estética macOS completa: tema WhiteSur, fuentes Cascadia Code + emojis Apple, terminal, prompt y apps equivalentes. Un solo comando por distro.
+Setup automatizado para dejar **Fedora 44 + KDE** o **Arch + GNOME** con estética macOS completa: tema WhiteSur, fuentes Cascadia Code + emojis Apple, terminal, prompt y apps equivalentes. Un solo comando por distro.
 
 ```bash
 git clone https://github.com/Jufedev/linux-setup.git ~/linux-setup
@@ -36,7 +36,7 @@ linux-setup/
 │   ├── ssh-github.sh       # Llave SSH para push a GitHub (sin tokens)
 │   ├── starship/           # Prompt de terminal
 │   └── fontconfig/         # Fallback de emojis a color
-├── fedora/                 # Fedora 42 + KDE Plasma 6
+├── fedora/                 # Fedora 44 + KDE Plasma 6
 │   ├── scripts/postinstall.sh
 │   └── configs/kde/        # Layout de panel + perfil de Konsole
 └── arch/                   # Arch + GNOME
@@ -46,11 +46,11 @@ linux-setup/
 
 ---
 
-## Fedora 42 + KDE — proceso
+## Fedora 44 + KDE — proceso
 
 > **Pasos simples.** Vos instalás Fedora a mano; el script hace todo el look macOS.
 
-1. **Instalá Fedora 42 KDE Spin** (USB con Rufus + instalador gráfico). Dejá Btrfs (default).
+1. **Instalá Fedora 44 KDE** (USB con Rufus + instalador gráfico). Dejá Btrfs (default). *(Funciona también en 42/43.)*
 2. **Tomá un snapshot** de seguridad antes de tocar nada:
    ```bash
    sudo btrfs subvolume snapshot / /.snapshots/pre-whitesur-$(date +%F)
