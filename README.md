@@ -115,7 +115,7 @@ Sin argumentos abre un **menú interactivo**, o usá flags directos:
 | `--wallpapers` | Wallpapers dinámicos por hora *(ya en `--all`)* |
 | `--gdm` | Login estilo macOS *(ver Extras)* |
 | `--cachyos` | Repos + kernel optimizados *(ya en `--all`)* |
-| `--hardware` | Microcode + drivers de GPU *(ya en `--all`)* |
+| `--hardware` | Microcode + drivers de GPU; NVIDIA usa módulos abiertos `nvidia-open-dkms` para Blackwell/RTX 50 *(ya en `--all`)* |
 
 ### Extras de Arch (opcionales)
 
@@ -124,6 +124,42 @@ Sin argumentos abre un **menú interactivo**, o usá flags directos:
 - **Monitor sin EDID** (resolución cae a `640x480`) — algunos monitores viejos o por adaptador no entregan EDID. Forzá el modo por parámetro de kernel en GRUB (`GRUB_CMDLINE_LINUX_DEFAULT="… video=DP-1:1440x900@60"`, luego `sudo grub-mkconfig -o /boot/grub/grub.cfg`). No va en los scripts porque el conector y la resolución cambian por máquina.
 
 ---
+
+## GPU NVIDIA dedicada (Blackwell / RTX 50)
+
+Las placas Blackwell (serie RTX 50, ej. **5060 Ti**) **requieren los módulos
+abiertos** de NVIDIA; el propietario clásico ya no las soporta.
+
+| Distro | Cómo se instala |
+|---|---|
+| Arch | `--hardware` → `nvidia-open-dkms` + `nvidia-utils` + headers, blacklist de nouveau, `nvidia_drm.modeset=1`, early KMS en mkinitcpio |
+| Fedora | `--gpu` → `akmod-nvidia-open` + CUDA/VAAPI, blacklist de nouveau, `nvidia-drm.modeset=1` |
+
+Reiniciá y verificá con `nvidia-smi`. Sin placa NVIDIA el módulo es no-op (Mesa ya cubre AMD/Intel).
+
+### Antes que nada: deshabilitá la iGPU en BIOS
+
+En una APU Ryzen (ej. 5700G) el gráfico integrado sigue activo junto a la placa.
+Para un desktop de una sola GPU, deshabilitalo en BIOS.
+
+**GIGABYTE B550M AORUS Elite AX (rev 1.3):**
+
+1. Entrá al BIOS con `DEL`; pasá a modo Advanced con `F2`.
+2. `Settings → IO Ports → Integrated Graphics` → **Disabled**.
+3. `Settings → IO Ports → Initial Display Output` → **PCIe 1 Slot**.
+4. Enchufá el monitor a la **placa de video**, no a la board.
+5. Guardá y salí con `F10`.
+
+> Si no aparece "Integrated Graphics", actualizá el BIOS — las versiones viejas
+> no exponían el toggle del iGPU de Cezanne.
+
+> **Probar sin la placa.** Para ejercitar el branch NVIDIA en una VM sin GPU:
+> `FORCE_GPU=nvidia bash arch/scripts/postinstall.sh --hardware` (Arch) o
+> `FORCE_GPU=nvidia bash fedora/scripts/postinstall.sh --gpu` (Fedora). Valida que
+> los paquetes resuelvan y que DKMS/akmod compile; el módulo no *carga* sin hardware real.
+
+Detalle de Secure Boot, firma de módulos y el caveat de suspend en kernel 7.0 en
+**[fedora/README.md](fedora/README.md)**.
 
 ## Core (Arch + Fedora)
 

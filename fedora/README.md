@@ -55,6 +55,7 @@ The script is safe to re-run. Each module is idempotent.
 |---|---|
 | `--all` | Runs all modules in dependency order |
 | `--repos` | Enables RPM Fusion free + nonfree, adds Flathub, upgrades system |
+| `--gpu` | Installs NVIDIA open kernel modules (`akmod-nvidia-open`) for Blackwell/RTX 50 cards; blacklists nouveau, enables KMS. No-op without an NVIDIA card. See [NVIDIA Dedicated GPU](#nvidia-dedicated-gpu-blackwell--rtx-50) |
 | `--fonts` | Installs Inter, Cascadia Code Nerd Font, Apple Color Emoji, Windows-equivalent fonts; applies KDE font config |
 | `--apps` | Installs flameshot, podman, distrobox, Chrome + Edge (Flatpak), enables firewalld |
 | `--themes` | Clones + installs WhiteSur-kde (Plasma look-and-feel + Aurorae) |
@@ -66,6 +67,59 @@ The script is safe to re-run. Each module is idempotent.
 | `--panel` | Applies macOS panel layout (top bar + bottom dock) via Plasma Scripting API; clock shows 24h + date |
 | `--konsole` | Installs MacOS Konsole profile and color scheme, sets as default |
 | `--keyboard` | Sets English intl (AltGr dead keys) keyboard layout (KDE session + system-wide via localectl) |
+
+## NVIDIA Dedicated GPU (Blackwell / RTX 50)
+
+The `--gpu` module installs the **open kernel modules** (`akmod-nvidia-open`) —
+the only supported option for Blackwell cards (RTX 50 series, e.g. RTX 5060 Ti).
+The legacy proprietary module no longer supports this architecture.
+
+```bash
+bash fedora/scripts/postinstall.sh --gpu
+```
+
+It installs `akmod-nvidia-open` + CUDA/VAAPI support, blacklists nouveau, sets
+`nvidia-drm.modeset=1`, builds the akmod, and rebuilds the initramfs. Reboot and
+verify with `nvidia-smi`. Without an NVIDIA card the module is a no-op (Mesa
+already covers AMD/Intel on Fedora).
+
+> **Test without the card.** To exercise the NVIDIA path in a VM that has no
+> NVIDIA GPU, force the branch: `FORCE_GPU=nvidia bash fedora/scripts/postinstall.sh --gpu`.
+> This validates package resolution and the akmod build; the module won't *load*
+> without real hardware.
+
+### BIOS — disable the integrated GPU first
+
+On a Ryzen APU (e.g. 5700G) the iGPU stays active alongside the dedicated card.
+For a clean single-GPU desktop, disable it in BIOS before installing the driver.
+
+**GIGABYTE B550M AORUS Elite AX (rev 1.3):**
+
+1. Enter BIOS with `DEL`; switch to Advanced mode with `F2`.
+2. `Settings → IO Ports → Integrated Graphics` → **Disabled**.
+3. `Settings → IO Ports → Initial Display Output` → **PCIe 1 Slot**.
+4. Plug the monitor into the **graphics card**, not the motherboard.
+5. Save & exit with `F10`.
+
+> If "Integrated Graphics" is missing, update the BIOS — older versions did not
+> expose the Cezanne iGPU toggle.
+
+### Secure Boot
+
+The akmod module is unsigned by default and will not load under Secure Boot.
+Either disable Secure Boot in BIOS, or sign the module:
+
+```bash
+sudo kmodgenca -a
+sudo mokutil --import /etc/pki/akmods/certs/public_key.der   # set a one-time password
+# reboot → MOK Manager → Enroll MOK → enter the password
+```
+
+### Kernel 7.0 suspend caveat
+
+Blackwell + nvidia-open has a known s2idle suspend/resume regression on Linux 7.0
+(unfixed as of mid-2026). Fedora 42 (kernel 6.14) and 43 (6.17) are unaffected.
+If you move to a 7.0 kernel and resume hangs, fall back to a 6.17/LTS kernel.
 
 ## Known Limitations
 

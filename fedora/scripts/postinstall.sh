@@ -2,7 +2,7 @@
 # ============================================================================
 # Fedora 42 + KDE Plasma 6 — Setup estilo macOS
 # Ejecutar como usuario normal después del primer boot
-# Uso: bash postinstall.sh [--all | --repos | --fonts | --apps | --themes |
+# Uso: bash postinstall.sh [--all | --repos | --gpu | --fonts | --apps | --themes |
 #          --gtk | --kvantum | --icons | --decorations | --wallpapers | --panel | --konsole | --keyboard]
 # Sin argumentos = muestra el uso
 # ============================================================================
@@ -568,9 +568,77 @@ configure_keyboard() {
     ok "Keyboard layout set (us, altgr-intl)"
 }
 
+# ── Módulo 13: GPU / NVIDIA ───────────────────────────────────────────────────
+# Driver NVIDIA para placas dedicadas. Blackwell (RTX serie 50, ej. 5060 Ti)
+# REQUIERE los módulos abiertos (akmod-nvidia-open); el módulo propietario clásico
+# ya no soporta esta arquitectura. Detección por lspci; para testear en VM sin la
+# placa real, forzá el branch con: FORCE_GPU=nvidia bash postinstall.sh --gpu
+configure_gpu() {
+    step "GPU — driver NVIDIA (módulos abiertos)"
+
+    command -v lspci &>/dev/null || dnf_install pciutils
+
+    local has_nvidia="false"
+    if [[ "${FORCE_GPU:-}" == "nvidia" ]]; then
+        has_nvidia="true"
+        warn "FORCE_GPU=nvidia — forzando el branch NVIDIA (modo test/VM, sin placa real)"
+    elif lspci 2>/dev/null | grep -qi 'nvidia'; then
+        has_nvidia="true"
+    fi
+
+    # AMD/Intel ya quedan cubiertos por Mesa de fábrica en Fedora — no hay nada que instalar.
+    if [[ "$has_nvidia" != "true" ]]; then
+        info "No se detectó GPU NVIDIA — Mesa ya cubre AMD/Intel en Fedora"
+        ok "GPU configurada (sin NVIDIA)"
+        return 0
+    fi
+
+    info "GPU NVIDIA detectada — instalando módulos abiertos (akmod-nvidia-open)"
+
+    # akmod-nvidia-open vive en RPM Fusion nonfree (lo habilita setup_repos).
+    # Validamos por si este módulo se corre suelto antes de --repos.
+    if ! dnf repolist 2>/dev/null | grep -qi 'rpmfusion-nonfree'; then
+        warn "RPM Fusion nonfree no parece habilitado — corré primero: bash postinstall.sh --repos"
+    fi
+
+    # Driver abierto + soporte CUDA/VAAPI. akmod construye el módulo contra cada
+    # kernel instalado vía akmods + kernel-devel. NO usar akmod-nvidia (cerrado).
+    dnf_install akmod-nvidia-open xorg-x11-drv-nvidia-cuda
+
+    # Nouveau bloquea la init del módulo NVIDIA (pantalla negra) si llega a cargar.
+    info "Blacklisting nouveau..."
+    printf 'blacklist nouveau\noptions nouveau modeset=0\n' \
+        | sudo tee /etc/modprobe.d/blacklist-nouveau.conf >/dev/null
+
+    # KMS: nvidia-drm.modeset=1 es necesario para la sesión Wayland de KDE.
+    # grubby --args es idempotente (no duplica el arg si ya está).
+    if command -v grubby &>/dev/null; then
+        info "Habilitando nvidia-drm.modeset=1 vía grubby..."
+        sudo grubby --update-kernel=ALL --args="nvidia-drm.modeset=1" 2>&1 | tee -a "$LOG_FILE" \
+            || warn "grubby falló al setear nvidia-drm.modeset"
+    fi
+
+    # Forzar el build del akmod ahora (en vez de esperar al próximo boot) y
+    # regenerar el initramfs para que tome el blacklist de nouveau.
+    info "Construyendo el módulo akmod (puede tardar unos minutos)..."
+    sudo akmods --force 2>&1 | tee -a "$LOG_FILE" || warn "akmods --force devolvió error (puede completarse en el boot)"
+    sudo dracut --force 2>&1 | tee -a "$LOG_FILE" || warn "dracut --force falló"
+
+    # Secure Boot: un módulo sin firmar no carga. Avisamos, no lo resolvemos solos
+    # (firmar requiere enrolar una MOK con reboot interactivo).
+    if command -v mokutil &>/dev/null && mokutil --sb-state 2>/dev/null | grep -qi 'enabled'; then
+        warn "Secure Boot ACTIVO — el módulo NVIDIA no cargará sin firma."
+        warn "  Opción A (simple): deshabilitá Secure Boot en BIOS."
+        warn "  Opción B: firmá el módulo (kmodgenca -a && mokutil --import). Ver README."
+    fi
+
+    ok "GPU NVIDIA configurada — reiniciá y verificá con: nvidia-smi"
+}
+
 # ── run_all ──────────────────────────────────────────────────────────────────
 run_all() {
     run_module "Repos (RPM Fusion + Flathub)" setup_repos
+    run_module "GPU (NVIDIA open modules)"     configure_gpu
     run_module "Fonts"                         install_fonts
     run_module "Apps + dev + firewall"         install_apps
     run_module "WhiteSur themes"               install_whitesur_themes
@@ -590,6 +658,7 @@ run_all() {
 case "${1:-}" in
     --all)         run_all ;;
     --repos)       run_module "Repos (RPM Fusion + Flathub)" setup_repos;         print_summary ;;
+    --gpu)         run_module "GPU (NVIDIA open modules)"     configure_gpu;        print_summary ;;
     --fonts)       run_module "Fonts"                         install_fonts;        print_summary ;;
     --apps)        run_module "Apps + dev + firewall"         install_apps;         print_summary ;;
     --themes)      run_module "WhiteSur themes"               install_whitesur_themes; print_summary ;;
@@ -602,7 +671,7 @@ case "${1:-}" in
     --konsole)     run_module "Konsole profile"               install_konsole_profile; print_summary ;;
     --keyboard)    run_module "Keyboard layout"               configure_keyboard;       print_summary ;;
     *)
-        echo "Usage: $0 [--all | --repos | --fonts | --apps | --themes | --gtk | --kvantum | --icons | --decorations | --wallpapers | --panel | --konsole | --keyboard]"
+        echo "Usage: $0 [--all | --repos | --gpu | --fonts | --apps | --themes | --gtk | --kvantum | --icons | --decorations | --wallpapers | --panel | --konsole | --keyboard]"
         exit 0
         ;;
 esac

@@ -830,6 +830,60 @@ apply_gdm() {
     warn "Corré: sudo systemctl restart gdm"
 }
 
+# Driver NVIDIA con módulos abiertos. Blackwell (RTX serie 50, ej. 5060 Ti)
+# REQUIERE nvidia-open-dkms; el módulo propietario clásico ya no la soporta.
+# DKMS compila el módulo contra cada kernel instalado (stock + CachyOS).
+configure_nvidia() {
+    info "GPU NVIDIA detectada — instalando módulos abiertos (nvidia-open-dkms)"
+
+    # Headers de cada kernel instalado: DKMS los necesita para compilar el módulo.
+    local hdrs=() k
+    for k in linux linux-lts linux-zen linux-hardened linux-cachyos linux-cachyos-bore; do
+        pacman -Q "$k" &>/dev/null && hdrs+=("${k}-headers")
+    done
+    [[ ${#hdrs[@]} -eq 0 ]] && warn "No detecté headers de kernel — DKMS podría no compilar el módulo"
+
+    # nvidia-open-dkms: módulos abiertos (obligatorio en Blackwell). nvidia-utils: userspace.
+    local nvidia_pkgs=(nvidia-open-dkms nvidia-utils)
+    # lib32 solo si multilib está habilitado (Steam/Wine). El setup no lo habilita por defecto.
+    if pacman-conf --repo-list 2>/dev/null | grep -qx multilib; then
+        nvidia_pkgs+=(lib32-nvidia-utils)
+    fi
+    pac_install "${hdrs[@]}" "${nvidia_pkgs[@]}"
+
+    # Nouveau bloquea la init del módulo NVIDIA (pantalla negra) si llega a cargar.
+    info "Blacklisting nouveau..."
+    printf 'blacklist nouveau\noptions nouveau modeset=0\n' \
+        | sudo tee /etc/modprobe.d/blacklist-nouveau.conf >/dev/null
+
+    # Early KMS: módulos NVIDIA en el initramfs (requerido por la sesión Wayland de GNOME).
+    if [[ -f /etc/mkinitcpio.conf ]] && ! grep -q 'nvidia_drm' /etc/mkinitcpio.conf; then
+        info "Agregando módulos NVIDIA a mkinitcpio..."
+        sudo sed -i 's/^MODULES=(\(.*\))/MODULES=(\1 nvidia nvidia_modeset nvidia_uvm nvidia_drm)/' /etc/mkinitcpio.conf
+        sudo sed -i 's/MODULES=( /MODULES=(/' /etc/mkinitcpio.conf
+    fi
+
+    # nvidia_drm.modeset=1 en la línea de comando del kernel (Wayland). Idempotente.
+    if [[ -f /etc/default/grub ]] && ! grep -q 'nvidia_drm.modeset=1' /etc/default/grub; then
+        info "Agregando nvidia_drm.modeset=1 a GRUB_CMDLINE_LINUX_DEFAULT..."
+        sudo sed -i 's/\(GRUB_CMDLINE_LINUX_DEFAULT="[^"]*\)"/\1 nvidia_drm.modeset=1"/' /etc/default/grub
+    fi
+
+    # Regenerar initramfs con los módulos nuevos.
+    if command -v mkinitcpio &>/dev/null; then
+        info "Regenerando initramfs (mkinitcpio -P)..."
+        sudo mkinitcpio -P 2>&1 | tee -a "$LOG_FILE" || warn "mkinitcpio -P falló"
+    fi
+
+    # Power management: evita corrupción de VRAM al suspender/hibernar.
+    sudo systemctl enable nvidia-suspend.service nvidia-resume.service nvidia-hibernate.service \
+        2>&1 | tee -a "$LOG_FILE" || warn "No se pudieron habilitar los servicios nvidia-*"
+
+    warn "Kernel 7.0 + Blackwell: regresión de suspend/resume (s2idle) sin fix a jun-2026."
+    warn "  Si usás el kernel CachyOS (7.x) y se cuelga al resumir, probá un kernel 6.17/LTS."
+    ok "NVIDIA configurada — reiniciá y verificá con: nvidia-smi"
+}
+
 install_hardware() {
     step "Hardware — microcode del CPU + drivers de GPU"
 
@@ -846,25 +900,33 @@ install_hardware() {
         warn "No se detectó vendor de CPU — sin microcode"
     fi
 
-    # ── Drivers de GPU (userspace) según el hardware detectado ──
     command -v lspci &>/dev/null || pac_install pciutils
 
-    local gpu_pkgs=""
+    # ── Drivers userspace de la iGPU (AMD/Intel) — Mesa. Inofensivo como fallback ──
+    local igpu_pkgs=""
     if lspci 2>/dev/null | grep -E -qi 'amd|ati'; then
-        gpu_pkgs="mesa vulkan-radeon libva-mesa-driver mesa-vdpau"
-        info "GPU AMD detectada — instalando drivers RADV/VAAPI/VDPAU"
+        igpu_pkgs="mesa vulkan-radeon libva-mesa-driver mesa-vdpau"
+        info "iGPU AMD detectada — drivers RADV/VAAPI/VDPAU"
     elif lspci 2>/dev/null | grep -qi 'intel.*graphics\|intel.*display'; then
-        gpu_pkgs="mesa vulkan-intel intel-media-driver"
-        info "GPU Intel detectada — instalando drivers ANV/VAAPI"
-    elif lspci 2>/dev/null | grep -qi 'nvidia'; then
-        warn "GPU NVIDIA detectada — NO instalo drivers automáticamente"
-        warn "Instalalos a mano (nvidia-open-dkms + nvidia-utils) — requieren config de kernel/Wayland"
+        igpu_pkgs="mesa vulkan-intel intel-media-driver"
+        info "iGPU Intel detectada — drivers ANV/VAAPI"
     fi
-    [[ -n "$gpu_pkgs" ]] && pac_install $gpu_pkgs
+    [[ -n "$igpu_pkgs" ]] && pac_install $igpu_pkgs
 
-    # ── Regenerar GRUB para que cargue el microcode ──
-    if [[ -n "$ucode" ]] && command -v grub-mkconfig &>/dev/null; then
-        info "Regenerando GRUB para cargar el microcode..."
+    # ── NVIDIA: bloque INDEPENDIENTE (no elif). Se atiende siempre que esté
+    #    presente, sin importar la iGPU. Override para VM: FORCE_GPU=nvidia ──
+    local has_nvidia="false"
+    if [[ "${FORCE_GPU:-}" == "nvidia" ]]; then
+        has_nvidia="true"
+        warn "FORCE_GPU=nvidia — forzando branch NVIDIA (test/VM, sin placa real)"
+    elif lspci 2>/dev/null | grep -qi 'nvidia'; then
+        has_nvidia="true"
+    fi
+    [[ "$has_nvidia" == "true" ]] && configure_nvidia
+
+    # ── Regenerar GRUB (microcode + nvidia_drm.modeset si se agregó) ──
+    if command -v grub-mkconfig &>/dev/null; then
+        info "Regenerando GRUB..."
         sudo grub-mkconfig -o /boot/grub/grub.cfg 2>&1 | tee -a "$LOG_FILE"
     fi
 
