@@ -6,6 +6,7 @@
 
 # Artefactos locales de tooling (gentle-ai / skills) — no van al repo
 .atl/
+.claude/
 
 # Llaves SSH — nunca subir credenciales al repo
 *.pem
