@@ -31,7 +31,7 @@ sudo timeshift --create --comments "pre-whitesur"
 |---|---|
 | Fedora 44 KDE | KDE Plasma 6.x. Works on 42/43 too (scripts use `rpm -E %fedora`). |
 | Normal user with sudo | Do **not** run as root. |
-| Live Plasma session | Panel/wallpaper commands require a running Plasma session. Theming-only modules (fonts, GTK) work headless. |
+| Live Plasma session | Panel/wallpaper commands and Flatpak operations (`--repos`/`--apps`, which need a polkit agent) require a running session. Theming-only modules (fonts, GTK) work headless. |
 | Internet connection | Clones WhiteSur repos from GitHub. ~200 MB total. |
 | `git` installed | Pre-installed on Fedora. |
 
@@ -145,6 +145,7 @@ driver fix lands.
 | Global menu (GTK apps) | The `org.kde.plasma.appmenu` widget works natively for KDE/Qt apps. GTK app menus require `appmenu-gtk3-module` (install via `dnf install appmenu-gtk3-module`). |
 | Firewall (deny incoming) | `--apps` sets firewalld's default zone to `public` (deny incoming except ssh/dhcpv6/mdns), matching the Arch setup. Fedora's stock `FedoraWorkstation` zone leaves ports 1025-65535 open — that is overridden. **KDE Connect / LAN file sharing need their ports opened manually** (e.g. `sudo firewall-cmd --permanent --add-service=kdeconnect && sudo firewall-cmd --reload`). |
 | Headless / CI runs | Modules 4–10 apply Plasma config and may print warnings when no graphical session is active. The script continues and returns the correct exit code. |
+| Flatpak needs a desktop session | `--repos` and `--apps` run **system-level** Flatpak ops (add the Flathub remote, install Chrome/Edge) that require a **polkit agent**. From a Plasma session they prompt for authorization and succeed; over SSH/headless they fail with `not allowed for user`. The intended flow is: install Fedora to disk → boot the desktop → `git clone` → run the scripts from Konsole. |
 
 ## Next Steps
 

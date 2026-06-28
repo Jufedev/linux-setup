@@ -70,6 +70,10 @@ dnf_install() {
 }
 
 # Instala apps de Flathub. Mismo patrón batch→individual que dnf_install.
+# NOTA: las operaciones flatpak a nivel sistema (remote-add e install) requieren
+# un agente polkit. Corré los scripts desde la sesión de escritorio Plasma ya
+# instalada (no por SSH/headless): es el flujo soportado y polkit pide la
+# autorización. Sin sesión gráfica fallan con "not allowed for user".
 flatpak_install() {
     info "Installing (flatpak): $*"
     if flatpak install -y flathub "$@" 2>&1 | tee -a "$LOG_FILE"; then
