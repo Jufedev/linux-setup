@@ -55,8 +55,9 @@ linux-setup/
    ```bash
    sudo btrfs subvolume snapshot / /.snapshots/pre-whitesur-$(date +%F)
    ```
-3. **Cloná y corré el setup:**
+3. **Cloná y corré el setup:** *(la KDE Spin no trae `git` de fábrica)*
    ```bash
+   sudo dnf install -y git
    git clone https://github.com/Jufedev/linux-setup.git ~/linux-setup
    cd ~/linux-setup
    bash fedora/scripts/postinstall.sh --all

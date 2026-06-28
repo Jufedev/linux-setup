@@ -96,6 +96,13 @@ dnf_remove() {
     done
 }
 
+# Asegura git, que usan los módulos que clonan los repos WhiteSur (theme,
+# wallpapers). La KDE Spin de Fedora NO trae git de fábrica — el usuario lo
+# necesita incluso para clonar este repo, pero lo garantizamos por las dudas.
+ensure_git() {
+    command -v git &>/dev/null || dnf_install git
+}
+
 # Instala apps de Flathub. Mismo patrón batch→individual que dnf_install.
 # NOTA: las operaciones flatpak a nivel sistema (remote-add e install) requieren
 # un agente polkit. Corré los scripts desde la sesión de escritorio Plasma ya
@@ -336,7 +343,7 @@ install_whitesur_themes() {
     local tmp_dir
     tmp_dir="$(mktemp -d)"
     # Limpiar el directorio temporal al salir (éxito o error)
-    trap 'rm -rf "$tmp_dir"' RETURN
+    trap 'rm -rf "${tmp_dir:-}" 2>/dev/null || true' RETURN
 
     info "Cloning WhiteSur-kde..."
     git clone --depth=1 --branch "$WHITESUR_KDE_REF" https://github.com/vinceliuice/WhiteSur-kde.git \
@@ -363,7 +370,7 @@ install_whitesur_gtk() {
 
     local tmp_dir
     tmp_dir="$(mktemp -d)"
-    trap 'rm -rf "$tmp_dir"' RETURN
+    trap 'rm -rf "${tmp_dir:-}" 2>/dev/null || true' RETURN
 
     info "Cloning WhiteSur-gtk-theme..."
     git clone --depth=1 --branch "$WHITESUR_GTK_REF" https://github.com/vinceliuice/WhiteSur-gtk-theme.git \
@@ -419,7 +426,7 @@ install_icons_cursors() {
 
     local tmp_dir
     tmp_dir="$(mktemp -d)"
-    trap 'rm -rf "$tmp_dir"' RETURN
+    trap 'rm -rf "${tmp_dir:-}" 2>/dev/null || true' RETURN
 
     # Icons
     info "Cloning WhiteSur-icon-theme..."
@@ -493,9 +500,11 @@ apply_window_decorations() {
 install_wallpapers() {
     step "Wallpapers — WhiteSur"
 
+    ensure_git   # clona el repo WhiteSur-wallpapers con git
+
     local tmp_dir
     tmp_dir="$(mktemp -d)"
-    trap 'rm -rf "$tmp_dir"' RETURN
+    trap 'rm -rf "${tmp_dir:-}" 2>/dev/null || true' RETURN
 
     info "Cloning WhiteSur-wallpapers..."
     git clone --depth=1 --branch "$WHITESUR_WALLPAPERS_REF" https://github.com/vinceliuice/WhiteSur-wallpapers.git \
@@ -513,19 +522,22 @@ install_wallpapers() {
     bash "$tmp_dir/WhiteSur-wallpapers/$install_script" 2>&1 | tee -a "$LOG_FILE" \
         || warn "wallpaper install returned non-zero"
 
-    # Establecer un wallpaper por defecto en Plasma (|| true — requiere sesión gráfica activa)
-    # El install.sh copia los wallpapers a ~/Pictures/WhiteSur o /usr/share/wallpapers/WhiteSur
-    local wallpaper_path
-    wallpaper_path="${HOME}/Pictures/WhiteSur/WhiteSur-light-nord.jpg"
-    if [[ ! -f "$wallpaper_path" ]]; then
-        # Fallback a la ubicación del sistema
-        wallpaper_path="/usr/share/wallpapers/WhiteSur/contents/images/5120x2880.jpg"
-    fi
+    # Establecer un wallpaper por defecto en Plasma (|| true — requiere sesión gráfica activa).
+    # El install.sh instala los wallpapers como KPackages de Plasma en
+    # ~/.local/share/wallpapers/WhiteSur-{light,dark}; plasma-apply-wallpaperimage
+    # acepta el directorio del KPackage directamente.
+    local wallpaper_pkg
+    for wallpaper_pkg in \
+        "${HOME}/.local/share/wallpapers/WhiteSur-light" \
+        "/usr/share/wallpapers/WhiteSur-light" \
+        "${HOME}/.local/share/wallpapers/WhiteSur"; do
+        [[ -d "$wallpaper_pkg" ]] && break
+    done
 
-    if [[ -f "$wallpaper_path" ]]; then
-        plasma-apply-wallpaperimage "$wallpaper_path" 2>&1 | tee -a "$LOG_FILE" \
+    if [[ -d "$wallpaper_pkg" ]]; then
+        plasma-apply-wallpaperimage "$wallpaper_pkg" 2>&1 | tee -a "$LOG_FILE" \
             || warn "plasma-apply-wallpaperimage returned non-zero (normal fuera de sesión gráfica)"
-        info "Wallpaper set: $wallpaper_path"
+        info "Wallpaper set: $wallpaper_pkg"
     else
         warn "Default wallpaper path not found — set manually from System Settings"
     fi
@@ -553,7 +565,7 @@ configure_desktop() {
     fi
 
     info "Applying panel layout via Plasma Scripting API..."
-    "$QDBUS" org.kde.plasma.shell /PlasmaShell \
+    "$QDBUS" org.kde.plasmashell /PlasmaShell \
         org.kde.PlasmaShell.evaluateScript \
         "$(cat "$panel_js")" 2>&1 | tee -a "$LOG_FILE" \
         || warn "evaluateScript returned non-zero (normal si Plasma no está corriendo)"
@@ -697,6 +709,7 @@ configure_hardware() {
 # cursores). Mismo concepto y resultado que --theme de Arch. Cada sub-paso corre
 # aislado vía run_module para que un fallo no tumbe al resto.
 install_theme() {
+    ensure_git   # los sub-módulos clonan repos WhiteSur con git
     run_module "WhiteSur themes"     install_whitesur_themes
     run_module "WhiteSur GTK theme"  install_whitesur_gtk
     run_module "Kvantum"             apply_kvantum

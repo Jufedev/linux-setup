@@ -33,7 +33,7 @@ sudo timeshift --create --comments "pre-whitesur"
 | Normal user with sudo | Do **not** run as root. |
 | Live Plasma session | Panel/wallpaper commands and Flatpak operations (`--repos`/`--apps`, which need a polkit agent) require a running session. Theming-only modules (fonts, GTK) work headless. |
 | Internet connection | Clones WhiteSur repos from GitHub. ~200 MB total. |
-| `git` installed | Pre-installed on Fedora. |
+| `git` installed | **Not preinstalled on the KDE Spin** — `sudo dnf install -y git` (you need it to clone this repo anyway). The theming/wallpaper modules also auto-install it if missing. |
 
 ## Quick Start
 
