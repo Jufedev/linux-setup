@@ -53,7 +53,7 @@ The script is safe to re-run. Each module is idempotent.
 
 > **Unified flags.** The flag set is **identical to the Arch setup** and each flag
 > does the same thing on both. `--launcher` and `--login` are no-ops on Fedora
-> (KRunner and SDDM are native), kept for parity. Arch's `--gnome` and `--cachyos`
+> (KRunner and the login manager are native), kept for parity. Arch's `--gnome` and `--cachyos`
 > have no Fedora equivalent (KDE ships with the spin; CachyOS is Arch-only).
 > `--debloat` is Fedora-only (Arch is minimal by construction, so it has nothing
 > to strip).
@@ -71,7 +71,7 @@ The script is safe to re-run. Each module is idempotent.
 | `--apps` | Installs flameshot, podman, distrobox, Chrome + Edge (Flatpak); enables firewalld and sets the default zone to `public` (deny incoming) |
 | `--wallpapers` | Clones + installs WhiteSur wallpapers, sets default background |
 | `--keyboard` | Sets English intl (AltGr dead keys) keyboard layout (KDE session + system-wide via localectl) |
-| `--login` | SDDM theming intentionally skipped — no-op |
+| `--login` | Login-screen theming intentionally skipped — no-op |
 | `--debloat` | **Fedora-only, opt-in (NOT in `--all`).** Removes preinstalled KDE Spin apps that don't fit a minimal macOS-style desktop. See [Debloat](#debloat-fedora-only) |
 
 ## Debloat (Fedora-only)
@@ -175,7 +175,7 @@ driver fix lands.
 | Area | Limitation |
 |---|---|
 | SF Pro font | Apple's SF Pro is proprietary. **Inter** is used instead — visually close for UI text. |
-| SDDM login screen | SDDM theming is intentionally skipped. SDDM is removed in Fedora 44+; login screen styling is not worth the maintenance cost. |
+| Login screen | Login-screen theming is intentionally skipped. Fedora 44 KDE replaced SDDM with the **Plasma Login Manager** (`plasma-login-manager`); styling it is not worth the maintenance cost. |
 | Dock zoom effect | The Parabolic zoom widget (macOS-like magnification) requires an unmaintained community plugin. The native Icons-Only Task Manager dock is used instead — no zoom. |
 | Panel layout script | `panel-layout.js` uses the Plasma 6 Desktop Scripting API. It clears and rebuilds all panels on each run — manual panel customizations are reset. Re-test after a major Plasma version upgrade. |
 | Global menu (GTK apps) | The `org.kde.plasma.appmenu` widget works natively for KDE/Qt apps. GTK app menus require `appmenu-gtk3-module` (install via `dnf install appmenu-gtk3-module`). |

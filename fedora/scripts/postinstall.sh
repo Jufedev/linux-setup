@@ -612,7 +612,7 @@ configure_keyboard() {
         warn "kwriteconfig6 not found — skipping KDE keyboard config"
     fi
 
-    # System-wide (login SDDM + fallback)
+    # System-wide (login manager + fallback)
     sudo localectl set-x11-keymap us "" altgr-intl 2>&1 | tee -a "$LOG_FILE" \
         || warn "localectl set-x11-keymap failed"
 
@@ -711,11 +711,12 @@ install_launcher() {
     ok "KRunner ya viene con KDE Plasma — nada que instalar (Meta o Alt+Space)"
 }
 
-# Tema de pantalla de login. En Fedora el theming de SDDM se saltea a propósito
-# (deprecado en Fedora 44+). Existe por paridad con Arch (--login = GDM).
+# Tema de pantalla de login. En Fedora el theming del login se saltea a propósito:
+# Fedora 44 KDE reemplazó SDDM por el Plasma Login Manager (plasma-login-manager).
+# Existe por paridad con Arch (--login = GDM).
 apply_login() {
-    step "Login — SDDM (omitido)"
-    warn "El theming de SDDM se saltea a propósito (deprecado en Fedora 44+). Sin cambios."
+    step "Login — login manager (omitido)"
+    warn "El theming del login se saltea a propósito (Fedora 44 usa Plasma Login Manager). Sin cambios."
 }
 
 # ── Módulo: Debloat (Fedora-only, OPT-IN) ────────────────────────────────────
@@ -770,7 +771,7 @@ case "${1:-}" in
     --apps)       run_module "Apps + dev + firewall"        install_apps;       print_summary ;;
     --wallpapers) run_module "Wallpapers"                   install_wallpapers; print_summary ;;
     --keyboard)   run_module "Keyboard"                     configure_keyboard; print_summary ;;
-    --login)      run_module "Login (SDDM skipped)"         apply_login;        print_summary ;;
+    --login)      run_module "Login (skipped)"              apply_login;        print_summary ;;
     --debloat)    run_module "Debloat (Fedora-only)"        debloat_system;     print_summary ;;
     *)
         echo "Usage: $0 [--all | --repos | --hardware | --fonts | --theme | --desktop | --terminal | --launcher | --apps | --wallpapers | --keyboard | --login | --debloat]"

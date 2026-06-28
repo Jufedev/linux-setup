@@ -18,7 +18,7 @@ bash setup.sh --all      # detecta tu distro y corre el setup que corresponde
 |---|---|---|
 | Paquetes | pacman + AUR (yay) | dnf + RPM Fusion + Flatpak |
 | Escritorio | GNOME | KDE Plasma 6 |
-| Login manager | GDM | SDDM (stock) |
+| Login manager | GDM | Plasma Login Manager (stock) |
 | Terminal | Kitty | Konsole |
 | Lanzador (Spotlight) | Ulauncher | KRunner (nativo) |
 | Dock | Dash-to-Dock | Panel flotante nativo |
@@ -251,7 +251,7 @@ KDE no usa "extensiones": el look se arma con un **layout de panel** (`fedora/co
 - **Decoraciones Aurorae** con botones a la izquierda (cerrar/minimizar/maximizar)
 - **Reloj en 24h con fecha** (configurado en el mismo script del panel)
 
-El módulo `--keyboard` configura el layout **English intl (AltGr dead keys)** tanto en la sesión KDE como a nivel sistema (SDDM + fallback via `localectl`).
+El módulo `--keyboard` configura el layout **English intl (AltGr dead keys)** tanto en la sesión KDE como a nivel sistema (login manager + fallback via `localectl`).
 
 ---
 
@@ -269,7 +269,7 @@ En vez del metapaquete `gnome` (~40 apps), solo lo esencial.
 
 **Sí:** RPM Fusion + Flathub, fuentes (Cascadia/Apple emoji/Inter/Windows libres), stack WhiteSur completo (Plasma + Kvantum + Aurorae + GTK + iconos + cursores + wallpapers), flameshot, podman, distrobox, Chrome + Edge (Flatpak), firewalld.
 
-**NO:** tema de SDDM (deprecado en Fedora 44+), zoom parabólico del dock *(widget sin mantener en Plasma 6)*. KDE ya trae Konsole, Dolphin, KRunner, etc. de fábrica.
+**NO:** tema de la pantalla de login (Fedora 44 reemplazó SDDM por el Plasma Login Manager; no vale la pena mantenerlo), zoom parabólico del dock *(widget sin mantener en Plasma 6)*. KDE ya trae Konsole, Dolphin, KRunner, etc. de fábrica.
 
 ---
 
