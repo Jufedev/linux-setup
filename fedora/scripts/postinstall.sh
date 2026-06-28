@@ -103,6 +103,41 @@ ensure_git() {
     command -v git &>/dev/null || dnf_install git
 }
 
+# Safeguard Blackwell: tras instalar el driver, confirma que quedó el módulo
+# ABIERTO (akmod/kmod-nvidia-open) y no el PROPIETARIO (akmod/kmod-nvidia).
+# En placas Blackwell (RTX 50) el propietario NO soporta el hardware → pantalla
+# negra silenciosa. Si RPM Fusion tiene el open desincronizado del userspace,
+# dnf puede arrastrar el propietario para satisfacer xorg-x11-drv-nvidia. Esto
+# convierte ese fallo silencioso en una advertencia visible (y en el resumen).
+verify_nvidia_open_kmod() {
+    # La señal de peligro es la PRESENCIA del propietario, no la ausencia del open:
+    # cuando RPM Fusion tiene el open desincronizado (open más viejo que el userspace),
+    # dnf instala el open PERO arrastra akmod-nvidia (propietario) como dependencia
+    # para igualar nvidia-kmod=<userspace>. Quedan los dos, y el propietario es el que
+    # matchea el userspace → es el que cargaría → pantalla negra en Blackwell.
+    local has_open="false" has_prop="false"
+    { rpm -q akmod-nvidia-open || rpm -q kmod-nvidia-open; } &>/dev/null && has_open="true"
+    { rpm -q akmod-nvidia      || rpm -q kmod-nvidia;       } &>/dev/null && has_prop="true"
+
+    if [[ "$has_prop" == "true" ]]; then
+        warn "⚠ El módulo NVIDIA PROPIETARIO (akmod/kmod-nvidia) quedó instalado."
+        if [[ "$has_open" == "true" ]]; then
+            warn "  Está JUNTO al abierto: RPM Fusion tiene el open desincronizado y dnf"
+            warn "  arrastró el propietario para igualar la versión del userspace."
+        fi
+        warn "  En placas Blackwell (RTX 50) el propietario NO soporta el hardware → PANTALLA NEGRA."
+        warn "  Comprobá con: rpm -q akmod-nvidia akmod-nvidia-open xorg-x11-drv-nvidia"
+        warn "  Acción: esperá a que RPM Fusion sincronice el open con el userspace y reinstalá,"
+        warn "  o excluí el propietario (dnf ... --exclude=akmod-nvidia,kmod-nvidia) asumiendo el fallo."
+        FAILED_PKGS+=("nvidia-proprietary-kmod-present")
+    elif [[ "$has_open" == "true" ]]; then
+        ok "Solo el módulo NVIDIA ABIERTO instalado — correcto para Blackwell/RTX 50"
+    else
+        warn "No se detectó ningún kmod NVIDIA instalado — revisá la salida de dnf más arriba."
+        FAILED_PKGS+=("nvidia-kmod-missing")
+    fi
+}
+
 # Instala apps de Flathub. Mismo patrón batch→individual que dnf_install.
 # NOTA: las operaciones flatpak a nivel sistema (remote-add e install) requieren
 # un agente polkit. Corré los scripts desde la sesión de escritorio Plasma ya
@@ -674,6 +709,9 @@ configure_hardware() {
     # Driver abierto + soporte CUDA/VAAPI. akmod construye el módulo contra cada
     # kernel instalado vía akmods + kernel-devel. NO usar akmod-nvidia (cerrado).
     dnf_install akmod-nvidia-open xorg-x11-drv-nvidia-cuda
+
+    # Safeguard: confirmar que dnf no arrastró el módulo propietario en su lugar.
+    verify_nvidia_open_kmod
 
     # Nouveau bloquea la init del módulo NVIDIA (pantalla negra) si llega a cargar.
     info "Blacklisting nouveau..."
