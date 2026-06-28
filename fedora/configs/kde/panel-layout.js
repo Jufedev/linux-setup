@@ -44,11 +44,22 @@ clock.writeConfig("showDate", true);
 
 // ── BOTTOM dock — floating Icons-Only Task Manager ───────────────────────────
 // Behaves as a macOS-style Dock: shows running + pinned app icons.
-// Floating mode and dynamic sizing are configured via Plasma system settings
-// after first login (the scripting API does not expose all floating panel flags).
 var dock = new Panel;
 dock.location = "bottom";
 dock.height = 56;
 
 // Icons-Only Task Manager: shows running apps as icons, supports pinning
 dock.addWidget("org.kde.plasma.icontasks");
+
+// macOS-style floating, centered, content-sized dock. These Panel properties
+// landed in the Plasma 6.6 scripting API; wrap them in try/catch so older Plasma
+// (6.4/6.5) degrades to a full-width dock instead of aborting the rest of the
+// script. On older Plasma, set Floating + Center alignment manually from the
+// panel's "More Options" menu after first login.
+try {
+    dock.floating = true;       // detached from the screen edge (macOS look)
+    dock.alignment = "center";  // centered horizontally
+    dock.lengthMode = "fit";    // width hugs the icons instead of spanning full-width
+} catch (e) {
+    // Older Plasma scripting API — floating/alignment/lengthMode not exposed.
+}
