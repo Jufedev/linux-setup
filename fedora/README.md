@@ -55,6 +55,8 @@ The script is safe to re-run. Each module is idempotent.
 > does the same thing on both. `--launcher` and `--login` are no-ops on Fedora
 > (KRunner and SDDM are native), kept for parity. Arch's `--gnome` and `--cachyos`
 > have no Fedora equivalent (KDE ships with the spin; CachyOS is Arch-only).
+> `--debloat` is Fedora-only (Arch is minimal by construction, so it has nothing
+> to strip).
 
 | Flag | What it does |
 |---|---|
@@ -70,6 +72,40 @@ The script is safe to re-run. Each module is idempotent.
 | `--wallpapers` | Clones + installs WhiteSur wallpapers, sets default background |
 | `--keyboard` | Sets English intl (AltGr dead keys) keyboard layout (KDE session + system-wide via localectl) |
 | `--login` | SDDM theming intentionally skipped — no-op |
+| `--debloat` | **Fedora-only, opt-in (NOT in `--all`).** Removes preinstalled KDE Spin apps that don't fit a minimal macOS-style desktop. See [Debloat](#debloat-fedora-only) |
+
+## Debloat (Fedora-only)
+
+The Fedora KDE Spin ships a full app catalog. `--debloat` strips the apps that
+don't fit a minimal, macOS-style desktop. It is **opt-in** and deliberately **not
+part of `--all`** — it removes real productivity apps, so you choose when to run it.
+
+```bash
+bash fedora/scripts/postinstall.sh --debloat
+```
+
+Removes (~200 packages, ~1 GiB freed; `dnf` also drops the now-orphaned
+dependencies):
+
+| Group | Packages |
+|---|---|
+| KDE games | `kpat`, `kmines`, `kmahjongg` |
+| KDE PIM suite | `kontact`, `kmail`, `korganizer`, `kaddressbook`, `akregator`, `akonadi-import-wizard`, `grantlee-editor`, `pim-data-exporter`, `pim-sieve-editor` |
+| Media / comms | `dragon`, `elisa-player`, `kamoso`, `neochat`, `krfb`, `krdc` |
+| Office / browser | `libreoffice-core` (full suite), `firefox` *(the setup installs Chrome + Edge)* |
+| Redundant / one-offs | `spectacle` *(Flameshot is installed)*, `kolourpaint`, `kcharselect`, `khelpcenter`, `plasma-welcome`, `mediawriter`, `qrca`, `kmouth`, `skanpage` |
+| Fedora cruft on KDE | `gnome-abrt`, `setroubleshoot` |
+
+**Kept** (Plasma core + the setup's own stack): `plasma-desktop`, `plasma-workspace`,
+`kwin`, `plasma-login-manager`, `dolphin`, `konsole`, `okular`, `gwenview`, `ark`,
+`kcalc`, `plasma-discover`, `plasma-systemsettings`, `kde-connect`, `kwallet`,
+`filelight`, `kde-partitionmanager`, `kleopatra`.
+
+> Validated on a real Fedora KDE 44 VM: after `--debloat` the system still boots to
+> the graphical login and Plasma is intact. The module is idempotent (re-running it
+> is a no-op once the packages are gone) and reversible — reinstall anything with
+> `sudo dnf install <package>`. One side effect: removing Firefox also drops
+> `plasma-browser-integration`, so the kept Chrome/Edge lose panel media controls.
 
 ## NVIDIA Dedicated GPU (Blackwell / RTX 50)
 

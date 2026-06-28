@@ -69,6 +69,33 @@ dnf_install() {
     done
 }
 
+# Quita paquetes (debloat). Filtra a los que están instalados para ser idempotente
+# (re-ejecutar no falla con "no packages marked for removal"), luego los saca en una
+# sola transacción; si el batch falla, reintenta de a uno. dnf arrastra solo las
+# dependencias que quedan huérfanas (clean_requirements_on_remove), no toca lo que
+# siga siendo requerido por otro paquete.
+dnf_remove() {
+    local present=() pkg
+    for pkg in "$@"; do
+        rpm -q "$pkg" &>/dev/null && present+=("$pkg")
+    done
+    if [[ ${#present[@]} -eq 0 ]]; then
+        info "Nada para quitar — los paquetes ya no están instalados"
+        return 0
+    fi
+    info "Removing (dnf): ${present[*]}"
+    if sudo dnf remove -y "${present[@]}" 2>&1 | tee -a "$LOG_FILE"; then
+        return 0
+    fi
+    warn "dnf remove batch failed — retrying one by one..."
+    for pkg in "${present[@]}"; do
+        if ! sudo dnf remove -y "$pkg" 2>&1 | tee -a "$LOG_FILE"; then
+            warn "Package failed to remove (dnf): $pkg"
+            FAILED_PKGS+=("remove:$pkg")
+        fi
+    done
+}
+
 # Instala apps de Flathub. Mismo patrón batch→individual que dnf_install.
 # NOTA: las operaciones flatpak a nivel sistema (remote-add e install) requieren
 # un agente polkit. Corré los scripts desde la sesión de escritorio Plasma ya
@@ -691,6 +718,29 @@ apply_login() {
     warn "El theming de SDDM se saltea a propósito (deprecado en Fedora 44+). Sin cambios."
 }
 
+# ── Módulo: Debloat (Fedora-only, OPT-IN) ────────────────────────────────────
+# Quita apps preinstaladas de la KDE Spin que no encajan en un desktop estilo
+# macOS minimal. NO corre en --all (es destructivo: saca Firefox, LibreOffice y
+# la suite PIM). dnf arrastra solo las dependencias que quedan huérfanas.
+# Lista validada en una VM Fedora KDE 44: no toca Plasma core (plasma-desktop,
+# kwin, plasma-login-manager) ni el stack del setup (dolphin, konsole, okular,
+# gwenview, ark, kcalc, discover, kde-connect, kwallet). ~200 paquetes, ~1 GiB.
+debloat_system() {
+    step "Debloat — quitar apps preinstaladas de la KDE Spin"
+
+    dnf_remove \
+        kpat kmines kmahjongg \
+        kontact kmail korganizer kaddressbook akregator \
+        akonadi-import-wizard grantlee-editor pim-data-exporter pim-sieve-editor \
+        dragon elisa-player kamoso neochat krfb krdc \
+        plasma-welcome mediawriter qrca kmouth skanpage \
+        gnome-abrt setroubleshoot spectacle firefox \
+        kolourpaint kcharselect khelpcenter \
+        libreoffice-core
+
+    ok "Debloat completo — apps innecesarias removidas"
+}
+
 # ── run_all ──────────────────────────────────────────────────────────────────
 run_all() {
     run_module "Repos (RPM Fusion + Flathub)" setup_repos
@@ -721,8 +771,9 @@ case "${1:-}" in
     --wallpapers) run_module "Wallpapers"                   install_wallpapers; print_summary ;;
     --keyboard)   run_module "Keyboard"                     configure_keyboard; print_summary ;;
     --login)      run_module "Login (SDDM skipped)"         apply_login;        print_summary ;;
+    --debloat)    run_module "Debloat (Fedora-only)"        debloat_system;     print_summary ;;
     *)
-        echo "Usage: $0 [--all | --repos | --hardware | --fonts | --theme | --desktop | --terminal | --launcher | --apps | --wallpapers | --keyboard | --login]"
+        echo "Usage: $0 [--all | --repos | --hardware | --fonts | --theme | --desktop | --terminal | --launcher | --apps | --wallpapers | --keyboard | --login | --debloat]"
         exit 0
         ;;
 esac

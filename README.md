@@ -101,7 +101,7 @@ Instala en orden: CachyOS → repos → hardware → GNOME → tema → fuentes 
 
 Sin argumentos abre un **menú interactivo**, o usá flags directos:
 
-> **Flags unificados.** Los flags son **idénticos en Arch y Fedora** y hacen lo mismo en ambas, salvo `--gnome` y `--cachyos`, exclusivos de Arch (Fedora ya trae KDE y no usa CachyOS).
+> **Flags unificados.** Los flags son **idénticos en Arch y Fedora** y hacen lo mismo en ambas, salvo `--gnome` y `--cachyos` (exclusivos de Arch — Fedora ya trae KDE y no usa CachyOS) y `--debloat` (exclusivo de Fedora — Arch ya es mínimo por construcción).
 
 | Flag | Qué instala |
 |------|-------------|
@@ -119,6 +119,7 @@ Sin argumentos abre un **menú interactivo**, o usá flags directos:
 | `--keyboard` | Layout `us altgr-intl` (system-wide) |
 | `--login` | Login GDM estilo macOS *(ver Extras)* |
 | `--cachyos` | Repos + kernel optimizados *(Arch-only, ya en `--all`)* |
+| `--debloat` | Quita apps preinstaladas de la KDE Spin (juegos, PIM, Firefox, LibreOffice…) *(Fedora-only, opt-in, NO va en `--all`)* |
 
 ### Extras de Arch (opcionales)
 
