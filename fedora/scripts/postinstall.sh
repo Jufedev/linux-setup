@@ -85,6 +85,15 @@ flatpak_install() {
     done
 }
 
+# Asegura que el remote 'flathub' exista (idempotente con --if-not-exists).
+# setup_repos (--repos) lo agrega, pero --apps puede ejecutarse standalone, así que
+# install_apps también lo invoca para no fallar al instalar los navegadores.
+ensure_flathub_remote() {
+    flatpak remote-add --if-not-exists flathub \
+        https://dl.flathub.org/repo/flathub.flatpakrepo \
+        2>&1 | tee -a "$LOG_FILE" || warn "Flathub remote add returned non-zero (may already exist)"
+}
+
 # Ejecuta un módulo sin que su fallo aborte el resto del setup.
 # El 'if' suprime 'set -e' dentro del módulo y captura su estado final.
 run_module() {
@@ -145,9 +154,7 @@ setup_repos() {
 
     # Flathub (--if-not-exists es idempotente)
     info "Adding Flathub remote..."
-    flatpak remote-add --if-not-exists flathub \
-        https://dl.flathub.org/repo/flathub.flatpakrepo \
-        2>&1 | tee -a "$LOG_FILE" || warn "Flathub remote add returned non-zero (may already exist)"
+    ensure_flathub_remote
 
     # Actualización del sistema tras nuevos repos
     info "Running dnf upgrade --refresh..."
@@ -279,8 +286,10 @@ install_apps() {
         warn "firewalld no se instaló — el firewall NO quedó configurado"
     fi
 
-    # Apps de Flatpak (navegadores — Flatpak es la forma recomendada en Fedora inmutable/atómica)
+    # Apps de Flatpak (navegadores — Flatpak es la forma recomendada en Fedora inmutable/atómica).
+    # --apps puede correrse sin --repos, así que garantizamos el remote flathub antes de instalar.
     info "Installing browser Flatpaks..."
+    ensure_flathub_remote
     flatpak_install com.google.Chrome com.microsoft.Edge
 
     ok "Apps, dev tools, and firewall configured"
