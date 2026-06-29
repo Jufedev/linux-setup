@@ -323,13 +323,15 @@ install_fonts() {
 install_apps() {
     step "Apps + dev tools + firewall"
 
-    # Herramientas de captura de pantalla y contenedores
+    # Herramientas de captura de pantalla y contenedores + GNOME Calendar
+    # (el calendario macOS-style del dock; su icono muestra la fecha del día).
     dnf_install \
         flameshot \
         podman \
-        distrobox
+        distrobox \
+        gnome-calendar
 
-    ok "flameshot + podman + distrobox installed"
+    ok "flameshot + podman + distrobox + gnome-calendar installed"
 
     # Firewall — firewalld viene con el KDE spin. Su zona por defecto en Fedora
     # (FedoraWorkstation) deja ABIERTOS los puertos 1025-65535 entrantes; la

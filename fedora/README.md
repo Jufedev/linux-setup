@@ -70,7 +70,7 @@ The script is safe to re-run. Each module is idempotent.
 | `--desktop` | **Fallback** minimal panel layout (top bar + bottom dock) via Plasma Scripting API; clock shows 24h + date. `--all` uses `--macos-look` instead |
 | `--terminal` | Installs MacOS Konsole profile and color scheme, sets as default |
 | `--launcher` | KRunner is native to KDE — no-op (Meta or Alt+Space) |
-| `--apps` | Installs flameshot, podman, distrobox, Chrome + Edge (Flatpak); enables firewalld and sets the default zone to `public` (deny incoming) |
+| `--apps` | Installs flameshot, podman, distrobox, GNOME Calendar, Chrome + Edge (Flatpak); enables firewalld and sets the default zone to `public` (deny incoming) |
 | `--wallpapers` | Applies the MacSequoia wallpaper (installs it from the pack if missing) |
 | `--keyboard` | Sets English intl (AltGr dead keys) keyboard layout (KDE session + system-wide via localectl) |
 | `--login` | macOS login look (from the pack). **Additive + reversible:** sets the greeter wallpaper via a drop-in (Plasma Login Manager on Fedora 44) or installs the `tahoe-sddm` theme (SDDM spins). Never touches autologin or the manager itself |
