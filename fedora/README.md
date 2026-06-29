@@ -219,6 +219,7 @@ forces `widgetStyle=kvantum` (MacSequoia) right after applying the look-and-feel
 | Area | Limitation |
 |---|---|
 | SF Pro font | Apple's SF Pro is proprietary. **Inter** is used instead — visually close for UI text. |
+| Dark mode | **Light only.** The pack's `MacSequoia-Dark` look-and-feel sets `widgetStyle=Darkly`, a Qt style the pack references but doesn't ship — switching to dark breaks widget styling. Stay on `MacSequoia-Light`; if a switch broke things, re-select the **MacSequoia-Light** global theme or re-run `--macos-look`. |
 | Login screen | `--login` styles the greeter additively (wallpaper drop-in on Fedora 44's Plasma Login Manager; full `tahoe-sddm` theme on SDDM spins). The full QML greeter theme only applies where SDDM is the manager — on Fedora 44 only the wallpaper changes. |
 | Pack versioning | plasma6macos has no upstream releases, so it's **vendored** (committed) instead of pinned to a ref. Bumping it means re-downloading the zips from the KDE Store and replacing `fedora/vendor/plasma6macos/`. |
 | Panel layout | `--all`/`--macos-look` drops the pack's `appletsrc` and restarts plasmashell (a backup is saved to `*.pre-macos.bak`). `--desktop` is a minimal procedural fallback (`panel-layout.js`) that rebuilds panels on each run — manual panel customizations are reset. Re-test after a major Plasma version upgrade. |
