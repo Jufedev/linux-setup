@@ -371,11 +371,11 @@ DialogHeight=630
 DialogWidth=810
 
 [Containments][3][Applets][84][Configuration][General]
-customText=true
+customText=false
 lengthFirstMargin=8
 lengthLastMargin=8
 showIcon=false
-textDefault=\s  Finder      File       Edit       Views       Go       Window       Help
+textDefault=
 
 [Containments][3][ConfigDialog]
 DialogHeight=175

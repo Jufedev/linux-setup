@@ -740,9 +740,25 @@ apply_macos_layout() {
         else
             (setsid plasmashell >/dev/null 2>&1 &)
         fi
+
+        # Esperar a que plasmashell vuelva y ajustar la geometría de los paneles
+        # (dock flotante/centrado + barra superior más fina) vía scripting API —
+        # esas props no se setean confiablemente desde el appletsrc estático.
+        local geo="${CONFIGS_DIR}/kde/plasma6macos/panel-geometry.js"
+        if [[ -n "$QDBUS" && -f "$geo" ]]; then
+            local _i
+            for _i in $(seq 1 20); do
+                "$QDBUS" org.kde.plasmashell /PlasmaShell \
+                    org.kde.PlasmaShell.evaluateScript "0" &>/dev/null && break
+                sleep 1
+            done
+            "$QDBUS" org.kde.plasmashell /PlasmaShell \
+                org.kde.PlasmaShell.evaluateScript "$(cat "$geo")" 2>&1 \
+                | tee -a "$LOG_FILE" || warn "no se pudo ajustar la geometría de los paneles"
+        fi
         ok "Layout aplicado — plasmashell reiniciado"
     else
-        warn "Sin sesión gráfica — cerrá sesión y volvé a entrar para ver el layout"
+        warn "Sin sesión gráfica — cerrá sesión y volvé a entrar (después: bash postinstall.sh --macos-look para la geometría)"
     fi
 }
 
