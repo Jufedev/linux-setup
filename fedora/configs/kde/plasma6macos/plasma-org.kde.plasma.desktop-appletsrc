@@ -110,7 +110,7 @@ widgetSpacing=8
 widgetToolTipMode=Disabled
 windowTitleFontSize=10
 windowTitleHideEmpty=true
-windowTitleUndefined=Finder    Files  Edit  View  Windows  Help
+windowTitleUndefined=
 
 [Containments][3][Applets][40][Configuration][ConfigDialog]
 DialogHeight=540

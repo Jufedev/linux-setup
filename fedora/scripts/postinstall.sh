@@ -709,6 +709,13 @@ apply_macos_layout() {
     if command -v kwriteconfig6 &>/dev/null; then
         kwriteconfig6 --file kdeglobals --group KDE     --key widgetStyle kvantum
         kwriteconfig6 --file kdeglobals --group General --key GtkTheme MacTahoe-Light
+
+        # macOS: ocultar la barra de título de las ventanas maximizadas (los botones
+        # y el nombre ya viven en la barra superior fija vía application-title-bar).
+        # BorderlessMaximizedWindows es nativo de KWin; el script 'truely-maximized'
+        # (del pack) hace lo mismo de forma más completa — lo activamos también.
+        kwriteconfig6 --file kwinrc --group Windows --key BorderlessMaximizedWindows true
+        kwriteconfig6 --file kwinrc --group Plugins --key truely-maximizedEnabled true
     fi
     command -v kvantummanager &>/dev/null \
         && kvantummanager --set MacSequoia 2>&1 | tee -a "$LOG_FILE" || true
