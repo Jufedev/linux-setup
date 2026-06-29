@@ -245,12 +245,14 @@ Las custom están en el repo (`arch/configs/gnome/`) y se instalan solas con `--
 
 ### Fedora — KDE Plasma
 
-KDE no usa "extensiones": el look se arma con un **layout de panel** (`fedora/configs/kde/panel-layout.js`) que crea:
+KDE no usa "extensiones": el look del video se arma con el pack **plasma6macos** (vendorizado en `fedora/vendor/plasma6macos/`), que aplica:
 
-- **Barra superior** con Global Menu (el menú de la app activa, estilo macOS)
-- **Dock inferior flotante** (Icons-Only Task Manager)
-- **Decoraciones Aurorae** con botones a la izquierda (cerrar/minimizar/maximizar)
-- **Reloj en 24h con fecha** (configurado en el mismo script del panel)
+- **Barra superior** con menú  (kMenu), Global Menu, Control Center estilo iOS, clima y reloj
+- **Dock inferior flotante** con **botón de apps (Tahoe Launcher)** + Icons-Only Task Manager
+- **Tema MacSequoia** (Plasma + Aurorae con botones a la izquierda) + efectos KWin (blur/kinetic)
+- **Login** estilo macOS (aditivo y reversible)
+
+Detalle completo y cómo revertir: **[fedora/README.md → The macOS look](fedora/README.md#the-macos-look-plasma6macos)**. El `panel-layout.js` queda como fallback mínimo vía `--desktop`.
 
 El módulo `--keyboard` configura el layout **English intl (AltGr dead keys)** tanto en la sesión KDE como a nivel sistema (login manager + fallback via `localectl`).
 

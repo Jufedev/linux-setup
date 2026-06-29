@@ -3,7 +3,8 @@
 # Fedora 44 + KDE Plasma 6 — Setup estilo macOS
 # Ejecutar como usuario normal después del primer boot
 # Uso: bash postinstall.sh [--all | --repos | --hardware | --fonts | --theme |
-#          --desktop | --terminal | --launcher | --apps | --wallpapers | --keyboard | --login]
+#          --macos-look | --desktop | --terminal | --launcher | --apps |
+#          --wallpapers | --keyboard | --login | --debloat]
 # Sin argumentos = muestra el uso
 # ============================================================================
 set -euo pipefail
@@ -18,6 +19,7 @@ step()  { echo -e "\n${C}━━━ $1 ━━━${NC}\n"; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIGS_DIR="${SCRIPT_DIR}/../configs"
 SHARED_DIR="${SCRIPT_DIR}/../../shared"
+VENDOR_DIR="${SCRIPT_DIR}/../vendor/plasma6macos"
 
 # Log persistente (sobrevive reinicios — /tmp se borra al rebootear)
 LOG_DIR="${XDG_STATE_HOME:-$HOME/.local/state}"
@@ -49,6 +51,13 @@ readonly WHITESUR_KDE_REF="2024-11-18"
 readonly WHITESUR_ICON_REF="2025-12-27"
 readonly WHITESUR_WALLPAPERS_REF="2023-06-11"
 readonly WHITESUR_CURSORS_SHA="e190baf618ed95ee217d2fd45589bd309b37672b"
+
+# ── plasma6macos pack (vendorizado) ──────────────────────────────────────────
+# El "look del video" es el pack plasma6macos (autor: Lsteam). NO tiene versionado
+# en la KDE Store → vive vendorizado en fedora/vendor/plasma6macos/ (ver su
+# ATTRIBUTION.md). El tema real es MacSequoia (vinceliuice), no WhiteSur: por eso
+# WhiteSur solo no quedaba igual. MacSequoia-Light es el default del pack.
+readonly MACOS_LNF="com.github.vinceliuice.MacSequoia-Light"
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 # Estrategia: intentar el batch (rápido, resuelve dependencias juntas). Si falla,
@@ -197,8 +206,9 @@ print_summary() {
 
     echo ""
     echo -e "${G}Next steps:${NC}"
-    echo "  • Log out and back in to see the full theme and font changes"
-    echo "  • If panel layout looks off, re-run: bash postinstall.sh --desktop"
+    echo "  • Log out and back in to see the full theme, panels and font changes"
+    echo "  • If the macOS panels/dock look off, re-run: bash postinstall.sh --macos-look"
+    echo "  • Minimal panel fallback (no pack): bash postinstall.sh --desktop"
     echo ""
 
     # Salir con código de error si hubo fallos (útil para CI / scripts llamadores)
@@ -580,10 +590,11 @@ install_wallpapers() {
     ok "WhiteSur wallpapers installed"
 }
 
-# ── Módulo 9: Panel layout ───────────────────────────────────────────────────
-# Aplica el layout macOS (barra superior + dock inferior) vía Plasma Scripting API.
-# El JS borra los paneles existentes y los reconstruye → idempotente pero DESTRUCTIVO
-# para customizaciones manuales (se documenta en panel-layout.js y en el README).
+# ── Módulo 9: Panel layout (FALLBACK procedural) ─────────────────────────────
+# Layout macOS básico (barra + dock) vía Plasma Scripting API. Es el FALLBACK:
+# --all usa install_macos_look (layout fiel del video). Esto queda como --desktop
+# para quien quiera el layout mínimo sin el pack. El JS borra los paneles y los
+# reconstruye → idempotente pero DESTRUCTIVO para customizaciones manuales.
 configure_desktop() {
     step "Panel layout — macOS-style (top bar + bottom dock)"
 
@@ -743,6 +754,141 @@ configure_hardware() {
     ok "GPU NVIDIA configurada — reiniciá y verificá con: nvidia-smi"
 }
 
+# ── plasma6macos: el "look del video" ────────────────────────────────────────
+# Estos módulos aplican el pack plasma6macos (MacSequoia + plasmoides custom +
+# layout exacto + efectos KWin + login). Corren DESPUÉS de WhiteSur: WhiteSur
+# aporta GTK/Kvantum/iconos/cursores (también macOS), y MacSequoia pisa el estilo
+# Plasma + Aurorae + el layout de paneles para quedar idéntico al video.
+
+# Extrae un zip vendorizado del pack a un tmp dir. Deja la ruta en $_VENDOR_TMP.
+# Devuelve 1 (sin abortar) si el asset no está o falla la extracción.
+_VENDOR_TMP=""
+_extract_vendor() {
+    local zip_name="$1"
+    local zip_path="${VENDOR_DIR}/${zip_name}"
+    _VENDOR_TMP=""
+    if [[ ! -f "$zip_path" ]]; then
+        warn "Asset vendorizado no encontrado: $zip_path — salteando"
+        return 1
+    fi
+    command -v unzip &>/dev/null || dnf_install unzip
+    _VENDOR_TMP="$(mktemp -d)"
+    if ! unzip -q -o "$zip_path" -d "$_VENDOR_TMP" >>"$LOG_FILE" 2>&1; then
+        warn "Falló la extracción de $zip_name"
+        rm -rf "$_VENDOR_TMP"; _VENDOR_TMP=""
+        return 1
+    fi
+    return 0
+}
+
+# Plasmoides custom: Tahoe Launcher (botón de apps), KdeControlStation, kMenu (),
+# weather y title-bar. Se copian a ~/.local/share/plasma/plasmoids/ (idempotente).
+install_macos_plasmoids() {
+    step "plasma6macos — plasmoides (Launchpad, Control Center, , weather)"
+    _extract_vendor plasma6macos-plasmoids.zip || return 0
+    local src="$_VENDOR_TMP"
+    trap 'rm -rf "${src:-}" 2>/dev/null || true' RETURN
+
+    local dest="${HOME}/.local/share/plasma/plasmoids"
+    mkdir -p "$dest"
+    if [[ -d "$src/plasmoids" ]]; then
+        cp -rf "$src/plasmoids/." "$dest/"
+        ok "Plasmoides instalados en $dest"
+    else
+        warn "El archivo no contiene plasmoids/ — nada que copiar"
+    fi
+}
+
+# Tema MacSequoia: desktoptheme (estilo Plasma) + Aurorae (deco) + color-schemes +
+# look-and-feel + wallpapers. Va a ~/.local/share/ (idempotente).
+install_macos_plasma_theme() {
+    step "plasma6macos — tema MacSequoia (Plasma + Aurorae + color schemes)"
+    _extract_vendor plasma6macos-plasma-theme.zip || return 0
+    local src="$_VENDOR_TMP"
+    trap 'rm -rf "${src:-}" 2>/dev/null || true' RETURN
+
+    local share="${HOME}/.local/share"
+    mkdir -p "$share/plasma/desktoptheme" "$share/plasma/look-and-feel" \
+             "$share/aurorae/themes" "$share/color-schemes" "$share/wallpapers"
+    [[ -d "$src/plasma/desktoptheme"  ]] && cp -rf "$src/plasma/desktoptheme/."  "$share/plasma/desktoptheme/"
+    [[ -d "$src/plasma/look-and-feel" ]] && cp -rf "$src/plasma/look-and-feel/." "$share/plasma/look-and-feel/"
+    [[ -d "$src/aurorae/themes"       ]] && cp -rf "$src/aurorae/themes/."       "$share/aurorae/themes/"
+    [[ -d "$src/color-schemes"        ]] && cp -rf "$src/color-schemes/."        "$share/color-schemes/"
+    [[ -d "$src/wallpapers"           ]] && cp -rf "$src/wallpapers/."           "$share/wallpapers/"
+    ok "Tema MacSequoia instalado"
+}
+
+# Efectos KWin (blur, kinetic), scripts y tabbox + el plugin de wallpaper con blur.
+# Quedan disponibles; se activan al recargar KWin / volver a entrar.
+install_macos_kwin_effects() {
+    step "plasma6macos — efectos KWin (blur, kinetic) + tabbox"
+    _extract_vendor plasma6macos-kwin-effect.zip || return 0
+    local src="$_VENDOR_TMP"
+    trap 'rm -rf "${src:-}" 2>/dev/null || true' RETURN
+
+    local share="${HOME}/.local/share"
+    mkdir -p "$share/kwin/effects" "$share/kwin/scripts" "$share/kwin/tabbox" "$share/plasma/wallpapers"
+    [[ -d "$src/kwin/effects" ]] && cp -rf "$src/kwin/effects/." "$share/kwin/effects/"
+    [[ -d "$src/kwin/scripts" ]] && cp -rf "$src/kwin/scripts/." "$share/kwin/scripts/"
+    [[ -d "$src/kwin/tabbox"  ]] && cp -rf "$src/kwin/tabbox/."  "$share/kwin/tabbox/"
+    [[ -d "$src/wallpapers"   ]] && cp -rf "$src/wallpapers/."   "$share/plasma/wallpapers/"
+    [[ -n "$QDBUS" ]] && "$QDBUS" org.kde.KWin /KWin reconfigure 2>/dev/null || true
+    ok "Efectos KWin instalados (se aplican al recargar KWin / re-login)"
+}
+
+# Aplica el layout EXACTO del pack (su appletsrc, variante neon = la más cercana a
+# upstream, con dev.xarbit.appgrid → TahoeLauncher) + el look-and-feel MacSequoia.
+# Reemplaza al panel-layout.js procedural (que queda como fallback vía --desktop).
+# Hace backup del layout actual una sola vez antes de pisarlo.
+apply_macos_layout() {
+    step "plasma6macos — layout de paneles (barra + dock) + look MacSequoia"
+
+    local appletsrc="${CONFIGS_DIR}/kde/plasma6macos/plasma-org.kde.plasma.desktop-appletsrc"
+    if [[ ! -f "$appletsrc" ]]; then
+        warn "Layout no encontrado: $appletsrc — salteando"
+        return 0
+    fi
+
+    local target="${HOME}/.config/plasma-org.kde.plasma.desktop-appletsrc"
+    mkdir -p "${HOME}/.config"
+    if [[ -f "$target" && ! -f "${target}.pre-macos.bak" ]]; then
+        cp "$target" "${target}.pre-macos.bak"
+        info "Backup del layout previo → ${target}.pre-macos.bak"
+    fi
+    cp "$appletsrc" "$target"
+    info "Layout plasma6macos aplicado"
+
+    # Look-and-feel MacSequoia (estilo Plasma + esquema de color + deco en un paso).
+    if command -v plasma-apply-lookandfeel &>/dev/null; then
+        plasma-apply-lookandfeel -a "$MACOS_LNF" 2>&1 | tee -a "$LOG_FILE" \
+            || warn "plasma-apply-lookandfeel devolvió non-zero (normal sin sesión gráfica)"
+    fi
+
+    # Recargar plasmashell para tomar el nuevo appletsrc. Solo con sesión gráfica;
+    # headless avisa que hay que volver a entrar.
+    if [[ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]] && command -v kquitapp6 &>/dev/null; then
+        info "Reiniciando plasmashell para cargar el layout..."
+        kquitapp6 plasmashell 2>/dev/null || true
+        sleep 1
+        if command -v kstart &>/dev/null; then
+            (kstart plasmashell >/dev/null 2>&1 &)
+        else
+            (setsid plasmashell >/dev/null 2>&1 &)
+        fi
+        ok "Layout aplicado — plasmashell reiniciado"
+    else
+        warn "Sin sesión gráfica — cerrá sesión y volvé a entrar para ver el layout"
+    fi
+}
+
+# Umbrella del look macOS del video. Cada sub-paso corre aislado vía run_module.
+install_macos_look() {
+    run_module "plasma6macos plasmoids"      install_macos_plasmoids
+    run_module "plasma6macos MacSequoia theme" install_macos_plasma_theme
+    run_module "plasma6macos KWin effects"   install_macos_kwin_effects
+    run_module "plasma6macos panel layout"   apply_macos_layout
+}
+
 # Stack visual WhiteSur completo (Plasma + Aurorae + GTK + Kvantum + iconos +
 # cursores). Mismo concepto y resultado que --theme de Arch. Cada sub-paso corre
 # aislado vía run_module para que un fallo no tumbe al resto.
@@ -762,12 +908,48 @@ install_launcher() {
     ok "KRunner ya viene con KDE Plasma — nada que instalar (Meta o Alt+Space)"
 }
 
-# Tema de pantalla de login. En Fedora el theming del login se saltea a propósito:
-# Fedora 44 KDE reemplazó SDDM por el Plasma Login Manager (plasma-login-manager).
-# Existe por paridad con Arch (--login = GDM).
+# Login estilo macOS (del pack plasma6macos). ADITIVO Y REVERSIBLE a propósito:
+# un greeter roto te deja afuera, así que NO tocamos el manager ni autologin —
+# solo seteamos el wallpaper del greeter (drop-in) o, en spins con SDDM, el tema.
+#
+# Fedora 44 KDE: Plasma Login Manager (plasmalogin) → drop-in en
+#   /etc/plasmalogin.conf.d/ + wallpaper en /var/lib/plasmalogin/wallpapers/.
+# Otras spins: SDDM → tema tahoe-sddm en /usr/share/sddm/themes/.
+# Para revertir: borrá el drop-in 95-macos-login.conf (y, en SDDM, Current=).
 apply_login() {
-    step "Login — login manager (omitido)"
-    warn "El theming del login se saltea a propósito (Fedora 44 usa Plasma Login Manager). Sin cambios."
+    step "Login — look macOS (plasma6macos, aditivo)"
+    _extract_vendor plasma6macos-sddm.zip || return 0
+    local src="$_VENDOR_TMP"
+    trap 'rm -rf "${src:-}" 2>/dev/null || true' RETURN
+
+    local bg="$src/tahoe-sddm/background.jpg"
+
+    if [[ -d /etc/plasmalogin.conf.d ]] || command -v plasma-login-manager &>/dev/null \
+       || systemctl list-unit-files 2>/dev/null | grep -qi 'plasma-login-manager'; then
+        info "Plasma Login Manager detectado — seteando wallpaper del greeter"
+        # Instalar el wallpaper que referencia el conf del pack.
+        if [[ -f "$bg" ]]; then
+            sudo install -Dm644 "$bg" /var/lib/plasmalogin/wallpapers/Plasma-Tahoe 2>&1 | tee -a "$LOG_FILE" \
+                || warn "no se pudo instalar el wallpaper del greeter"
+        fi
+        # Drop-in SOLO con el wallpaper (sin [Autologin], sin tocar el manager).
+        sudo install -d /etc/plasmalogin.conf.d
+        printf '[Greeter][Wallpaper][org.kde.image][General]\nImage=file:///var/lib/plasmalogin/wallpapers/Plasma-Tahoe\n' \
+            | sudo tee /etc/plasmalogin.conf.d/95-macos-login.conf >/dev/null \
+            && ok "Login (Plasma Login Manager) — wallpaper macOS aplicado" \
+            || warn "no se pudo escribir el drop-in del greeter"
+
+    elif command -v sddm &>/dev/null || [[ -d /usr/share/sddm/themes ]]; then
+        info "SDDM detectado — instalando tema tahoe-sddm"
+        [[ -d "$src/tahoe-sddm"      ]] && sudo cp -rf "$src/tahoe-sddm"      /usr/share/sddm/themes/ 2>&1 | tee -a "$LOG_FILE"
+        [[ -d "$src/tahoe-sddm-dark" ]] && sudo cp -rf "$src/tahoe-sddm-dark" /usr/share/sddm/themes/ 2>&1 | tee -a "$LOG_FILE"
+        sudo install -d /etc/sddm.conf.d
+        printf '[Theme]\nCurrent=tahoe-sddm\n' | sudo tee /etc/sddm.conf.d/95-macos-login.conf >/dev/null \
+            && ok "Login (SDDM) — tema tahoe-sddm aplicado" \
+            || warn "no se pudo escribir la config de SDDM"
+    else
+        warn "No se detectó un login manager soportado — login sin cambios"
+    fi
 }
 
 # ── Módulo: Debloat (Fedora-only, OPT-IN) ────────────────────────────────────
@@ -797,13 +979,14 @@ debloat_system() {
 run_all() {
     run_module "Repos (RPM Fusion + Flathub)" setup_repos
     run_module "Hardware (microcode + GPU)"   configure_hardware
-    install_theme   # umbrella: corre sus sub-pasos con run_module propio
+    install_theme       # WhiteSur base (GTK/Kvantum/iconos/cursores)
     run_module "Fonts"                        install_fonts
     run_module "Terminal (Konsole)"           install_terminal
     run_module "Launcher (KRunner native)"    install_launcher
     run_module "Apps + dev + firewall"        install_apps
     run_module "Wallpapers"                   install_wallpapers
-    run_module "Desktop (panel layout)"       configure_desktop
+    install_macos_look  # plasma6macos: MacSequoia + plasmoides + KWin + layout del video
+    run_module "Login (look macOS)"           apply_login
     run_module "Keyboard"                     configure_keyboard
 
     print_summary
@@ -816,16 +999,17 @@ case "${1:-}" in
     --hardware)   run_module "Hardware (microcode + GPU)"   configure_hardware; print_summary ;;
     --fonts)      run_module "Fonts"                        install_fonts;      print_summary ;;
     --theme)      install_theme;                                                print_summary ;;
-    --desktop)    run_module "Desktop (panel layout)"       configure_desktop;  print_summary ;;
+    --macos-look) install_macos_look;                                           print_summary ;;
+    --desktop)    run_module "Desktop (panel-layout.js fallback)" configure_desktop; print_summary ;;
     --terminal)   run_module "Terminal (Konsole)"           install_terminal;   print_summary ;;
     --launcher)   run_module "Launcher (KRunner native)"    install_launcher;   print_summary ;;
     --apps)       run_module "Apps + dev + firewall"        install_apps;       print_summary ;;
     --wallpapers) run_module "Wallpapers"                   install_wallpapers; print_summary ;;
     --keyboard)   run_module "Keyboard"                     configure_keyboard; print_summary ;;
-    --login)      run_module "Login (skipped)"              apply_login;        print_summary ;;
+    --login)      run_module "Login (look macOS)"           apply_login;        print_summary ;;
     --debloat)    run_module "Debloat (Fedora-only)"        debloat_system;     print_summary ;;
     *)
-        echo "Usage: $0 [--all | --repos | --hardware | --fonts | --theme | --desktop | --terminal | --launcher | --apps | --wallpapers | --keyboard | --login | --debloat]"
+        echo "Usage: $0 [--all | --repos | --hardware | --fonts | --theme | --macos-look | --desktop | --terminal | --launcher | --apps | --wallpapers | --keyboard | --login | --debloat]"
         exit 0
         ;;
 esac

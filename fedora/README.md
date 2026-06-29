@@ -52,8 +52,9 @@ The script is safe to re-run. Each module is idempotent.
 ## Module Reference
 
 > **Unified flags.** The flag set is **identical to the Arch setup** and each flag
-> does the same thing on both. `--launcher` and `--login` are no-ops on Fedora
-> (KRunner and the login manager are native), kept for parity. Arch's `--gnome` and `--cachyos`
+> does the same thing on both. `--launcher` is a no-op on Fedora (KRunner is native),
+> kept for parity. `--macos-look` is Fedora-only (the plasma6macos pack is KDE-specific).
+> Arch's `--gnome` and `--cachyos`
 > have no Fedora equivalent (KDE ships with the spin; CachyOS is Arch-only).
 > `--debloat` is Fedora-only (Arch is minimal by construction, so it has nothing
 > to strip).
@@ -64,14 +65,15 @@ The script is safe to re-run. Each module is idempotent.
 | `--repos` | Enables RPM Fusion free + nonfree, adds Flathub, upgrades system |
 | `--hardware` | Microcode + NVIDIA open kernel modules (`akmod-nvidia-open`) for Blackwell/RTX 50; blacklists nouveau, enables KMS. No-op without an NVIDIA card. See [NVIDIA Dedicated GPU](#nvidia-dedicated-gpu-blackwell--rtx-50) |
 | `--fonts` | Installs Inter, Cascadia Code Nerd Font, Apple Color Emoji, Windows-equivalent fonts; applies KDE font config |
-| `--theme` | Full WhiteSur visual stack: Plasma look-and-feel + Aurorae + GTK + Kvantum + icons + cursors |
-| `--desktop` | Applies macOS panel layout (top bar + bottom dock) via Plasma Scripting API; clock shows 24h + date |
+| `--theme` | Full WhiteSur visual stack: Plasma look-and-feel + Aurorae + GTK + Kvantum + icons + cursors (base layer) |
+| `--macos-look` | **The "video" look.** Applies the vendored [plasma6macos pack](../vendor/plasma6macos/ATTRIBUTION.md): MacSequoia Plasma theme + custom plasmoids (Tahoe Launcher / apps button, Control Center,  menu, weather) + KWin blur/kinetic effects + the exact panel layout. Runs in `--all` after `--theme` and overrides the Plasma style. See [The macOS look (plasma6macos)](#the-macos-look-plasma6macos) |
+| `--desktop` | **Fallback** minimal panel layout (top bar + bottom dock) via Plasma Scripting API; clock shows 24h + date. `--all` uses `--macos-look` instead |
 | `--terminal` | Installs MacOS Konsole profile and color scheme, sets as default |
 | `--launcher` | KRunner is native to KDE — no-op (Meta or Alt+Space) |
 | `--apps` | Installs flameshot, podman, distrobox, Chrome + Edge (Flatpak); enables firewalld and sets the default zone to `public` (deny incoming) |
 | `--wallpapers` | Clones + installs WhiteSur wallpapers, sets default background |
 | `--keyboard` | Sets English intl (AltGr dead keys) keyboard layout (KDE session + system-wide via localectl) |
-| `--login` | Login-screen theming intentionally skipped — no-op |
+| `--login` | macOS login look (from the pack). **Additive + reversible:** sets the greeter wallpaper via a drop-in (Plasma Login Manager on Fedora 44) or installs the `tahoe-sddm` theme (SDDM spins). Never touches autologin or the manager itself |
 | `--debloat` | **Fedora-only, opt-in (NOT in `--all`).** Removes preinstalled KDE Spin apps that don't fit a minimal macOS-style desktop. See [Debloat](#debloat-fedora-only) |
 
 ## Debloat (Fedora-only)
@@ -183,14 +185,39 @@ On a **desktop** the impact is low (you rarely suspend). If resume hangs, boot a
 6.x kernel from the GRUB menu (Fedora keeps the last 3) or pin one until the
 driver fix lands.
 
+## The macOS look (plasma6macos)
+
+The full desktop look from the reference tutorial is the **plasma6macos** pack
+(author: Lsteam — KDE Store). WhiteSur alone doesn't match it because the pack's
+Plasma theme is actually **MacSequoia** (vinceliuice) plus a set of custom plasmoids
+that WhiteSur doesn't ship.
+
+`--macos-look` (and `--all`) applies the desktop + login parts of that pack, vendored
+in [`fedora/vendor/plasma6macos/`](../vendor/plasma6macos/ATTRIBUTION.md):
+
+| Piece | What it adds |
+|---|---|
+| Plasmoids | **Tahoe Launcher** (the apps/Launchpad button), **KdeControlStation** (iOS-style Control Center), **kMenu** (the  menu), weather, window title-bar |
+| MacSequoia theme | Plasma desktop theme + Aurorae window decoration + color schemes + look-and-feel (`MacSequoia-Light` by default) |
+| KWin effects | Blur + kinetic open/close/maximize animations |
+| Panel layout | The pack's exact `appletsrc` (top menu bar + floating dock). `dev.xarbit.appgrid` is swapped for the bundled `TahoeLauncher` |
+| Login | Greeter wallpaper (Plasma Login Manager) or `tahoe-sddm` theme (SDDM) — additive and reversible |
+
+**Why vendored:** the pack has no versioned releases on the KDE Store, so it can't be
+pinned to a git ref like the WhiteSur repos. Committing it in-tree means the look
+survives even if the upstream listing disappears. WhiteSur is kept as the base for
+GTK/Kvantum/icons/cursors; MacSequoia overrides the Plasma style and panel layout on top.
+
+**To revert** the panel layout: `cp ~/.config/plasma-org.kde.plasma.desktop-appletsrc.pre-macos.bak ~/.config/plasma-org.kde.plasma.desktop-appletsrc` and re-login. **To revert** the login: delete `/etc/plasmalogin.conf.d/95-macos-login.conf` (or `/etc/sddm.conf.d/95-macos-login.conf`).
+
 ## Known Limitations
 
 | Area | Limitation |
 |---|---|
 | SF Pro font | Apple's SF Pro is proprietary. **Inter** is used instead — visually close for UI text. |
-| Login screen | Login-screen theming is intentionally skipped. Fedora 44 KDE replaced SDDM with the **Plasma Login Manager** (`plasma-login-manager`); styling it is not worth the maintenance cost. |
-| Dock zoom effect | The Parabolic zoom widget (macOS-like magnification) requires an unmaintained community plugin. The native Icons-Only Task Manager dock is used instead — no zoom. |
-| Panel layout script | `panel-layout.js` uses the Plasma 6 Desktop Scripting API. It clears and rebuilds all panels on each run — manual panel customizations are reset. Re-test after a major Plasma version upgrade. |
+| Login screen | `--login` styles the greeter additively (wallpaper drop-in on Fedora 44's Plasma Login Manager; full `tahoe-sddm` theme on SDDM spins). The full QML greeter theme only applies where SDDM is the manager — on Fedora 44 only the wallpaper changes. |
+| Pack versioning | plasma6macos has no upstream releases, so it's **vendored** (committed) instead of pinned to a ref. Bumping it means re-downloading the zips from the KDE Store and replacing `fedora/vendor/plasma6macos/`. |
+| Panel layout | `--all`/`--macos-look` drops the pack's `appletsrc` and restarts plasmashell (a backup is saved to `*.pre-macos.bak`). `--desktop` is a minimal procedural fallback (`panel-layout.js`) that rebuilds panels on each run — manual panel customizations are reset. Re-test after a major Plasma version upgrade. |
 | Global menu (GTK apps) | The `org.kde.plasma.appmenu` widget works natively for KDE/Qt apps. GTK app menus require `appmenu-gtk3-module` (install via `dnf install appmenu-gtk3-module`). |
 | Firewall (deny incoming) | `--apps` sets firewalld's default zone to `public` (deny incoming except ssh/dhcpv6/mdns), matching the Arch setup. Fedora's stock `FedoraWorkstation` zone leaves ports 1025-65535 open — that is overridden. **KDE Connect / LAN file sharing need their ports opened manually** (e.g. `sudo firewall-cmd --permanent --add-service=kdeconnect && sudo firewall-cmd --reload`). |
 | Headless / CI runs | Modules 4–10 apply Plasma config and may print warnings when no graphical session is active. The script continues and returns the correct exit code. |
@@ -200,7 +227,7 @@ driver fix lands.
 
 After `--all` completes:
 
-1. Log out and back in to apply font and theme changes fully.
-2. If the panel layout looks off, re-run: `bash fedora/scripts/postinstall.sh --desktop`
+1. Log out and back in to apply font, theme and panel changes fully.
+2. If the macOS panels/dock look off, re-run: `bash fedora/scripts/postinstall.sh --macos-look`
 3. Open Konsole → Settings → Edit Current Profile → confirm **MacOS** is selected.
 4. Check the summary output for any failed modules and re-run them individually.
