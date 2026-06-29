@@ -141,7 +141,7 @@ popupHeight=271
 popupWidth=200
 
 [Containments][3][Applets][73][Configuration][Apperance]
-cmdList=kinfocenter,systemsettings,plasma-discover,xkill,systemctl suspend,systemctl reboot,systemctl poweroff,loginctl lock-session,dbus-send --session --type=method_call --dest=org.kde.Shutdown /Shutdown org.kde.Shutdown.logout
+cmdList=kinfocenter,systemsettings,plasma-discover,xkill,systemctl suspend,dbus-send --session --type=method_call --dest=org.kde.LogoutPrompt /LogoutPrompt org.kde.LogoutPrompt.promptReboot,dbus-send --session --type=method_call --dest=org.kde.LogoutPrompt /LogoutPrompt org.kde.LogoutPrompt.promptShutDown,loginctl lock-session,dbus-send --session --type=method_call --dest=org.kde.LogoutPrompt /LogoutPrompt org.kde.LogoutPrompt.promptLogout
 iconList=help-hint,settings-configure,update-none,error,system-suspend,system-reboot,system-shutdown,system-lock-screen,system-log-out
 labelList=About This Computer,System Preferences...,App Store...,Force Quit...,Sleep,Restart...,Shut Down...,Lock Screen,Log Out
 separatorList=false,false,false,false,false,false,false,false,false
@@ -334,7 +334,7 @@ DialogWidth=720
 
 [Containments][3][Applets][8][General]
 extraItems=org.kde.plasma.notifications,org.kde.plasma.manage-inputmethod,org.kde.plasma.clipboard,org.kde.plasma.networkmanagement,org.kde.plasma.printmanager,org.kde.kscreen,org.kde.plasma.mediacontroller,org.kde.plasma.devicenotifier,org.kde.plasma.cameraindicator,org.kde.plasma.battery,org.kde.plasma.keyboardlayout,org.kde.plasma.volume,org.kde.plasma.bluetooth,org.kde.plasma.brightness,org.kde.kdeconnect,org.kde.plasma.vault
-hiddenItems=Albert,org.kde.plasma.volume,org.kde.plasma.clipboard,org.kde.plasma.brightness,org.kde.kdeconnect,org.kde.plasma.nightlight
+hiddenItems=Albert,org.kde.plasma.volume,org.kde.plasma.clipboard,org.kde.plasma.brightness,org.kde.kdeconnect,org.kde.plasma.nightlight,org.kde.plasma.nightcolorcontrol
 iconSpacing=6
 knownItems=org.kde.plasma.notifications,org.kde.plasma.manage-inputmethod,org.kde.plasma.clipboard,org.kde.plasma.networkmanagement,org.kde.plasma.printmanager,org.kde.kscreen,org.kde.plasma.mediacontroller,org.kde.plasma.devicenotifier,org.kde.plasma.cameraindicator,org.kde.plasma.battery,org.kde.plasma.keyboardlayout,org.kde.plasma.volume,org.kde.plasma.bluetooth,org.kde.plasma.brightness,org.kde.kdeconnect,org.kde.plasma.vault
 scaleIconsToFit=true
@@ -396,7 +396,7 @@ plugin=org.kde.plasma.folder
 wallpaperplugin=org.kde.image
 
 [Containments3Appletsts][69][Configuration][Apperance]
-cmdList=plasma-discover,loginctl lock-session,systemctl reboot,dbus-send --session --type=method_call --dest=org.kde.Shutdown /Shutdown org.kde.Shutdown.logout,systemsettings,xkill,systemctl suspend,systemctl poweroff,kinfocenter
+cmdList=plasma-discover,loginctl lock-session,dbus-send --session --type=method_call --dest=org.kde.LogoutPrompt /LogoutPrompt org.kde.LogoutPrompt.promptReboot,dbus-send --session --type=method_call --dest=org.kde.LogoutPrompt /LogoutPrompt org.kde.LogoutPrompt.promptLogout,systemsettings,xkill,systemctl suspend,dbus-send --session --type=method_call --dest=org.kde.LogoutPrompt /LogoutPrompt org.kde.LogoutPrompt.promptShutDown,kinfocenter
 iconList=update-none,system-lock-screen,system-reboot,system-log-out,settings-configure,error,system-suspend,system-shutdown,help-hint
 labelList=App Store...,Lock Screen,Restart...,Log Out,System Preferences...,Force Quit...,Sleep,Shut Down...,About This Computer
 separatorList=false,false,false,false,false,false,false,false,false
