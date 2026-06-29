@@ -12,10 +12,15 @@ guarantees the macOS look survives even if the upstream listing disappears or ch
 - **Source:** https://www.opendesktop.org/p/2304796/ (mirror: https://store.kde.org/p/2200488/)
 - **Vendored on:** 2026-06-29
 
-## What is vendored here (desktop + login scope only)
+## What is vendored here (full pack — WhiteSur was removed)
 
 | File | Contents | Installed to |
 |------|----------|--------------|
+| `plasma6macos-icons.zip` | MacTahoe icon themes (light/dark) | `~/.local/share/icons/` |
+| `plasma6macos-cursors.zip` | WhiteSur-cursors (referenced by the look-and-feel) | `~/.local/share/icons/` |
+| `plasma6macos-gtk-theme.zip` | MacTahoe GTK3/GTK4 theme | `~/.local/share/themes/` |
+| `plasma6macos-kvantum-config.zip` | MacSequoia Kvantum widget style | `~/.config/Kvantum/` |
+| `plasma6macos-fonts.zip` | Pack fonts (Adwaita Sans/Mono) | `~/.local/share/fonts/` |
 | `plasma6macos-plasmoids.zip` | Custom plasmoids (Tahoe Launcher, KdeControlStation, kMenu, weather, title-bar) | `~/.local/share/plasma/plasmoids/` |
 | `plasma6macos-plasma-theme.zip` | MacSequoia desktop theme, Aurorae deco, color-schemes, look-and-feel, wallpapers | `~/.local/share/plasma/`, `~/.local/share/aurorae/`, `~/.local/share/color-schemes/` |
 | `plasma6macos-kwin-effect.zip` | KWin kinetic effects + scripts + blur wallpaper plugin | `~/.local/share/kwin/`, `~/.local/share/plasma/wallpapers/` |
@@ -26,11 +31,15 @@ is the pack's **KDE neon** variant — closest to upstream Plasma, since the pac
 Fedora variant. One change was applied: the apps-grid plasmoid `dev.xarbit.appgrid`
 (not bundled in the pack) was swapped for `TahoeLauncher` (which is bundled).
 
-The MacSequoia theme is by vinceliuice (same author as WhiteSur), bundled inside the pack.
+The MacSequoia/MacTahoe themes are by vinceliuice, bundled inside the pack.
+
+**Note on the widget style:** the look-and-feel sets `widgetStyle=Darkly`, but Darkly
+is **not** shipped in the pack. The setup forces `widgetStyle=kvantum` (MacSequoia)
+right after applying the look-and-feel, so widgets are styled without needing Darkly.
 
 ## NOT vendored (out of scope)
 
-Icons, GTK theme, Kvantum, fonts, cursors, plymouth, cava, fastfetch, zsh/starship —
-these are either provided by the existing WhiteSur modules or intentionally left out.
-Each upstream plasmoid retains its own license where bundled (see individual `LICENSE`
-files inside the archives).
+`gnome-config`, `plymouth`, `cava`, `fastfetch`, `zsh/starship` — GNOME-specific or
+terminal eye-candy, intentionally left out (the repo already configures Konsole +
+Starship). Each upstream plasmoid retains its own license where bundled (see individual
+`LICENSE` files inside the archives).

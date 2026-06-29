@@ -1,9 +1,10 @@
 # Fedora 44 KDE — macOS-style Setup
 
-Automates a macOS-themed Fedora 44 KDE Plasma 6 desktop: WhiteSur theme stack
-(Plasma + Kvantum + icons + cursors + GTK), Inter fonts, Cascadia Code, a top
-menu bar + bottom icon dock layout, and a matching Konsole profile. Run as a
-normal user after first boot.
+Automates a macOS-themed Fedora 44 KDE Plasma 6 desktop using the vendored
+**plasma6macos** pack (MacSequoia Plasma theme + MacTahoe icons + Kvantum + GTK +
+custom plasmoids + KWin effects + login), plus Cascadia Code / emoji fonts and a
+matching Konsole profile. Run as a normal user after first boot. See
+[The macOS look](#the-macos-look-plasma6macos).
 
 ## Safety Net — Take a Snapshot First
 
@@ -31,9 +32,9 @@ sudo timeshift --create --comments "pre-whitesur"
 |---|---|
 | Fedora 44 KDE | KDE Plasma 6.x. Works on 42/43 too (scripts use `rpm -E %fedora`). |
 | Normal user with sudo | Do **not** run as root. |
-| Live Plasma session | Panel/wallpaper commands and Flatpak operations (`--repos`/`--apps`, which need a polkit agent) require a running session. Theming-only modules (fonts, GTK) work headless. |
-| Internet connection | Clones WhiteSur repos from GitHub. ~200 MB total. |
-| `git` installed | **Not preinstalled on the KDE Spin** — `sudo dnf install -y git` (you need it to clone this repo anyway). The theming/wallpaper modules also auto-install it if missing. |
+| Live Plasma session | Panel/wallpaper commands and Flatpak operations (`--repos`/`--apps`, which need a polkit agent) require a running session. Asset-install modules (icons, fonts, GTK) work headless. |
+| Internet connection | Only for `--repos`/`--apps` (system upgrade + Flatpaks). The macOS look is vendored in-tree — no theme downloads needed. |
+| `git` installed | **Not preinstalled on the KDE Spin** — `sudo dnf install -y git` (you need it to clone this repo anyway). |
 
 ## Quick Start
 
@@ -65,13 +66,12 @@ The script is safe to re-run. Each module is idempotent.
 | `--repos` | Enables RPM Fusion free + nonfree, adds Flathub, upgrades system |
 | `--hardware` | Microcode + NVIDIA open kernel modules (`akmod-nvidia-open`) for Blackwell/RTX 50; blacklists nouveau, enables KMS. No-op without an NVIDIA card. See [NVIDIA Dedicated GPU](#nvidia-dedicated-gpu-blackwell--rtx-50) |
 | `--fonts` | Installs Inter, Cascadia Code Nerd Font, Apple Color Emoji, Windows-equivalent fonts; applies KDE font config |
-| `--theme` | Full WhiteSur visual stack: Plasma look-and-feel + Aurorae + GTK + Kvantum + icons + cursors (base layer) |
-| `--macos-look` | **The "video" look.** Applies the vendored [plasma6macos pack](../vendor/plasma6macos/ATTRIBUTION.md): MacSequoia Plasma theme + custom plasmoids (Tahoe Launcher / apps button, Control Center,  menu, weather) + KWin blur/kinetic effects + the exact panel layout. Runs in `--all` after `--theme` and overrides the Plasma style. See [The macOS look (plasma6macos)](#the-macos-look-plasma6macos) |
+| `--theme` / `--macos-look` | **The full [plasma6macos pack](../vendor/plasma6macos/ATTRIBUTION.md) (the "video" look).** Icons (MacTahoe) + cursors + GTK + Kvantum (MacSequoia) + pack fonts + plasmoids (Tahoe Launcher, Control Center,  menu, weather) + MacSequoia Plasma theme/Aurorae + KWin blur/kinetic + the exact panel layout + MacSequoia wallpaper. Both flags do the same thing. See [The macOS look (plasma6macos)](#the-macos-look-plasma6macos) |
 | `--desktop` | **Fallback** minimal panel layout (top bar + bottom dock) via Plasma Scripting API; clock shows 24h + date. `--all` uses `--macos-look` instead |
 | `--terminal` | Installs MacOS Konsole profile and color scheme, sets as default |
 | `--launcher` | KRunner is native to KDE — no-op (Meta or Alt+Space) |
 | `--apps` | Installs flameshot, podman, distrobox, Chrome + Edge (Flatpak); enables firewalld and sets the default zone to `public` (deny incoming) |
-| `--wallpapers` | Clones + installs WhiteSur wallpapers, sets default background |
+| `--wallpapers` | Applies the MacSequoia wallpaper (installs it from the pack if missing) |
 | `--keyboard` | Sets English intl (AltGr dead keys) keyboard layout (KDE session + system-wide via localectl) |
 | `--login` | macOS login look (from the pack). **Additive + reversible:** sets the greeter wallpaper via a drop-in (Plasma Login Manager on Fedora 44) or installs the `tahoe-sddm` theme (SDDM spins). Never touches autologin or the manager itself |
 | `--debloat` | **Fedora-only, opt-in (NOT in `--all`).** Removes preinstalled KDE Spin apps that don't fit a minimal macOS-style desktop. See [Debloat](#debloat-fedora-only) |
@@ -187,26 +187,30 @@ driver fix lands.
 
 ## The macOS look (plasma6macos)
 
-The full desktop look from the reference tutorial is the **plasma6macos** pack
-(author: Lsteam — KDE Store). WhiteSur alone doesn't match it because the pack's
-Plasma theme is actually **MacSequoia** (vinceliuice) plus a set of custom plasmoids
-that WhiteSur doesn't ship.
-
-`--macos-look` (and `--all`) applies the desktop + login parts of that pack, vendored
-in [`fedora/vendor/plasma6macos/`](../vendor/plasma6macos/ATTRIBUTION.md):
+The entire KDE look is the **plasma6macos** pack (author: Lsteam — KDE Store).
+WhiteSur was removed: the pack's theme is **MacSequoia** + **MacTahoe** icons
+(vinceliuice) plus custom plasmoids that WhiteSur doesn't ship, and mixing both
+only caused conflicts (e.g. broken icons). `--theme`, `--macos-look` and `--all`
+all install the **full pack**, vendored in
+[`fedora/vendor/plasma6macos/`](../vendor/plasma6macos/ATTRIBUTION.md):
 
 | Piece | What it adds |
 |---|---|
+| Icons + cursors | **MacTahoe** icon theme (the look-and-feel requires it) + **WhiteSur-cursors** |
+| GTK theme | **MacTahoe** GTK3/GTK4 for GTK apps |
+| Kvantum | **MacSequoia** Qt widget style (the translucent menus) |
+| Fonts | Pack fonts (Adwaita Sans/Mono) |
 | Plasmoids | **Tahoe Launcher** (the apps/Launchpad button), **KdeControlStation** (iOS-style Control Center), **kMenu** (the  menu), weather, window title-bar |
-| MacSequoia theme | Plasma desktop theme + Aurorae window decoration + color schemes + look-and-feel (`MacSequoia-Light` by default) |
+| MacSequoia theme | Plasma desktop theme + Aurorae window decoration + color schemes + look-and-feel (`MacSequoia-Light` by default) + wallpaper |
 | KWin effects | Blur + kinetic open/close/maximize animations |
-| Panel layout | The pack's exact `appletsrc` (top menu bar + floating dock). `dev.xarbit.appgrid` is swapped for the bundled `TahoeLauncher` |
+| Panel layout | The pack's exact `appletsrc` (top menu bar + floating dock). `dev.xarbit.appgrid` swapped for the bundled `TahoeLauncher`; dock launchers fixed to KDE app IDs (Dolphin) |
 | Login | Greeter wallpaper (Plasma Login Manager) or `tahoe-sddm` theme (SDDM) — additive and reversible |
 
 **Why vendored:** the pack has no versioned releases on the KDE Store, so it can't be
-pinned to a git ref like the WhiteSur repos. Committing it in-tree means the look
-survives even if the upstream listing disappears. WhiteSur is kept as the base for
-GTK/Kvantum/icons/cursors; MacSequoia overrides the Plasma style and panel layout on top.
+pinned to a git ref. Committing it in-tree (~80 MB) means the look survives even if
+the upstream listing disappears. The look-and-feel sets the icon theme to
+`MacTahoe-light` and `widgetStyle=Darkly`; since Darkly isn't shipped, the setup
+forces `widgetStyle=kvantum` (MacSequoia) right after applying the look-and-feel.
 
 **To revert** the panel layout: `cp ~/.config/plasma-org.kde.plasma.desktop-appletsrc.pre-macos.bak ~/.config/plasma-org.kde.plasma.desktop-appletsrc` and re-login. **To revert** the login: delete `/etc/plasmalogin.conf.d/95-macos-login.conf` (or `/etc/sddm.conf.d/95-macos-login.conf`).
 

@@ -23,7 +23,7 @@ DialogHeight=540
 DialogWidth=720
 
 [Containments][27][Applets][28][Configuration][General]
-launchers=applications:org.gnome.Nautilus.desktop,applications:firefox.desktop,applications:org.kde.kcalc.desktop,applications:org.kde.gwenview.desktop,applications:org.kde.elisa.desktop,applications:org.kde.konsole.desktop,applications:org.kde.kate.desktop,applications:org.kde.discover.desktop,applications:systemsettings.desktop
+launchers=applications:org.kde.dolphin.desktop,applications:firefox.desktop,applications:org.kde.kcalc.desktop,applications:org.kde.gwenview.desktop,applications:org.kde.elisa.desktop,applications:org.kde.konsole.desktop,applications:org.kde.kate.desktop,applications:org.kde.discover.desktop,applications:systemsettings.desktop
 
 [Containments][27][Applets][88]
 immutability=1

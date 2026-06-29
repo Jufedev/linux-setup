@@ -44,19 +44,11 @@ for _qd in qdbus6 qdbus-qt6 qdbus; do
 done
 export QDBUS
 
-# ── Pinned upstream refs (WhiteSur) ──────────────────────────────────────────
-# Bump intencionalmente; clonar HEAD no es reproducible. Ver dependency audit.
-readonly WHITESUR_GTK_REF="2025-07-24"
-readonly WHITESUR_KDE_REF="2024-11-18"
-readonly WHITESUR_ICON_REF="2025-12-27"
-readonly WHITESUR_WALLPAPERS_REF="2023-06-11"
-readonly WHITESUR_CURSORS_SHA="e190baf618ed95ee217d2fd45589bd309b37672b"
-
 # ── plasma6macos pack (vendorizado) ──────────────────────────────────────────
-# El "look del video" es el pack plasma6macos (autor: Lsteam). NO tiene versionado
-# en la KDE Store → vive vendorizado en fedora/vendor/plasma6macos/ (ver su
-# ATTRIBUTION.md). El tema real es MacSequoia (vinceliuice), no WhiteSur: por eso
-# WhiteSur solo no quedaba igual. MacSequoia-Light es el default del pack.
+# El look del video ES el pack plasma6macos COMPLETO (autor: Lsteam). NO tiene
+# versionado en la KDE Store → vive vendorizado en fedora/vendor/plasma6macos/
+# (ver su ATTRIBUTION.md). El tema es MacSequoia + iconos MacTahoe (vinceliuice).
+# Reemplazó por completo al stack WhiteSur. MacSequoia-Light es el default.
 readonly MACOS_LNF="com.github.vinceliuice.MacSequoia-Light"
 
 # ── Helpers ────────────────────────────────────────────────────────────────
@@ -103,13 +95,6 @@ dnf_remove() {
             FAILED_PKGS+=("remove:$pkg")
         fi
     done
-}
-
-# Asegura git, que usan los módulos que clonan los repos WhiteSur (theme,
-# wallpapers). La KDE Spin de Fedora NO trae git de fábrica — el usuario lo
-# necesita incluso para clonar este repo, pero lo garantizamos por las dudas.
-ensure_git() {
-    command -v git &>/dev/null || dnf_install git
 }
 
 # Safeguard Blackwell: tras instalar el driver, confirma que quedó el módulo
@@ -378,216 +363,70 @@ install_apps() {
     ok "Apps, dev tools, and firewall configured"
 }
 
-# ── Módulo 4: WhiteSur themes ────────────────────────────────────────────────
-# Clona el repo WhiteSur-kde a un directorio temporal, ejecuta su install.sh y
-# aplica el look-and-feel global de Plasma. Re-ejecutar es idempotente (install.sh
-# sobreescribe los archivos existentes).
-install_whitesur_themes() {
-    step "WhiteSur KDE — Plasma look-and-feel + Aurorae"
-
-    local tmp_dir
-    tmp_dir="$(mktemp -d)"
-    # Limpiar el directorio temporal al salir (éxito o error)
-    trap 'rm -rf "${tmp_dir:-}" 2>/dev/null || true' RETURN
-
-    info "Cloning WhiteSur-kde..."
-    git clone --depth=1 --branch "$WHITESUR_KDE_REF" https://github.com/vinceliuice/WhiteSur-kde.git \
-        "$tmp_dir/WhiteSur-kde" 2>&1 | tee -a "$LOG_FILE"
-
-    info "Running WhiteSur-kde install.sh..."
-    bash "$tmp_dir/WhiteSur-kde/install.sh" 2>&1 | tee -a "$LOG_FILE"
-
-    # Aplicar el look-and-feel global (Plasma style + color scheme + window deco en un paso).
-    # El || true evita que falle si la sesión gráfica no está disponible (ej. CI, headless).
-    info "Applying WhiteSur look-and-feel..."
-    plasma-apply-lookandfeel -a com.github.vinceliuice.WhiteSur 2>&1 | tee -a "$LOG_FILE" \
-        || warn "plasma-apply-lookandfeel returned non-zero (normal si no hay sesión gráfica activa)"
-
-    ok "WhiteSur KDE theme installed"
+# ── plasma6macos assets — iconos + cursores ──────────────────────────────────
+# Iconos MacTahoe (lo que el look-and-feel MacSequoia referencia) + cursores
+# WhiteSur-cursors (idem). Van a ~/.local/share/icons/. La SELECCIÓN del tema la
+# hace apply_macos_config vía el look-and-feel.
+install_macos_icons_cursors() {
+    step "plasma6macos — iconos (MacTahoe) + cursores (WhiteSur)"
+    local dest="${HOME}/.local/share/icons"
+    mkdir -p "$dest"
+    if _extract_vendor plasma6macos-icons.zip; then
+        cp -rf "$_VENDOR_TMP"/. "$dest/"; rm -rf "$_VENDOR_TMP"
+        info "Iconos MacTahoe instalados"
+    fi
+    if _extract_vendor plasma6macos-cursors.zip; then
+        cp -rf "$_VENDOR_TMP"/. "$dest/"; rm -rf "$_VENDOR_TMP"
+        info "Cursores WhiteSur instalados"
+    fi
+    command -v gtk-update-icon-cache &>/dev/null \
+        && gtk-update-icon-cache -q "$dest/MacTahoe-light" 2>/dev/null || true
+    ok "Iconos + cursores instalados"
 }
 
-# ── Módulo 4b: WhiteSur GTK theme ────────────────────────────────────────────
-# WhiteSur-kde NO instala el tema GTK — ese está en un repo separado.
-# Este módulo clona WhiteSur-gtk-theme y lo instala con el enlace libadwaita (-l)
-# para que las apps GTK4 también hereden el look WhiteSur.
-install_whitesur_gtk() {
-    step "WhiteSur GTK — GTK3/GTK4 theme + libadwaita link"
-
-    local tmp_dir
-    tmp_dir="$(mktemp -d)"
-    trap 'rm -rf "${tmp_dir:-}" 2>/dev/null || true' RETURN
-
-    info "Cloning WhiteSur-gtk-theme..."
-    git clone --depth=1 --branch "$WHITESUR_GTK_REF" https://github.com/vinceliuice/WhiteSur-gtk-theme.git \
-        "$tmp_dir/WhiteSur-gtk-theme" 2>&1 | tee -a "$LOG_FILE" \
-        || { warn "WhiteSur-gtk-theme clone failed — skipping GTK theme install"; return 0; }
-
-    info "Running WhiteSur-gtk-theme install.sh -l (libadwaita link)..."
-    bash "$tmp_dir/WhiteSur-gtk-theme/install.sh" -l 2>&1 | tee -a "$LOG_FILE" \
-        || warn "WhiteSur-gtk-theme install.sh returned non-zero (partial install may still work)"
-
-    # Registrar el tema GTK en KDE para que Dolphin y apps GTK lo usen
-    if command -v kwriteconfig6 &>/dev/null; then
-        kwriteconfig6 --file kdeglobals --group General --key GtkTheme WhiteSur-Dark
-        info "KDE GTK theme set to WhiteSur-Dark"
-    fi
-
-    ok "WhiteSur GTK theme installed"
+# ── plasma6macos assets — fuentes ────────────────────────────────────────────
+# Fuentes del pack (Adwaita Sans/Mono). Van a ~/.local/share/fonts/ + fc-cache.
+install_macos_fonts() {
+    step "plasma6macos — fuentes del pack"
+    _extract_vendor plasma6macos-fonts.zip || return 0
+    local src="$_VENDOR_TMP"
+    trap 'rm -rf "${src:-}" 2>/dev/null || true' RETURN
+    local dest="${HOME}/.local/share/fonts"
+    mkdir -p "$dest"
+    cp -rf "$src"/. "$dest/"
+    command -v fc-cache &>/dev/null && fc-cache -f "$dest" >>"$LOG_FILE" 2>&1 || true
+    ok "Fuentes del pack instaladas"
 }
 
-# ── Módulo 5: Kvantum ────────────────────────────────────────────────────────
-# Kvantum aplica el estilo de widgets Qt (el puente entre GTK-look y Qt apps).
-# Se instala vía dnf si no está presente, luego se configura el tema WhiteSurDark.
-apply_kvantum() {
-    step "Kvantum — WhiteSurDark widget style"
-
-    # Instalar kvantum si no está disponible
-    if ! command -v kvantummanager &>/dev/null; then
-        info "kvantum not found — installing via dnf..."
-        dnf_install kvantum
-    fi
-
-    # Configurar el tema de Kvantum (creado por el install.sh de WhiteSur-kde)
-    kvantummanager --set WhiteSurDark 2>&1 | tee -a "$LOG_FILE" \
-        || warn "kvantummanager --set returned non-zero (normal fuera de sesión gráfica)"
-
-    # Registrar kvantum como el estilo de widgets en KDE
-    if command -v kwriteconfig6 &>/dev/null; then
-        kwriteconfig6 --file kdeglobals --group KDE --key widgetStyle kvantum
-        info "KDE widget style set to kvantum"
-    fi
-
-    # Pedir a KWin que relea su config sin cerrar la sesión
-    [[ -n "$QDBUS" ]] && "$QDBUS" org.kde.KWin /KWin reconfigure 2>/dev/null \
-        || warn "KWin reconfigure skipped (QDBUS not available or headless)"
-
-    ok "Kvantum configured (WhiteSurDark)"
+# ── plasma6macos assets — tema GTK ───────────────────────────────────────────
+# Tema GTK MacTahoe (apps GTK3/GTK4). Va a ~/.local/share/themes/. La selección
+# (GtkTheme) la hace apply_macos_config.
+install_macos_gtk() {
+    step "plasma6macos — tema GTK (MacTahoe)"
+    _extract_vendor plasma6macos-gtk-theme.zip || return 0
+    local src="$_VENDOR_TMP"
+    trap 'rm -rf "${src:-}" 2>/dev/null || true' RETURN
+    local dest="${HOME}/.local/share/themes"
+    mkdir -p "$dest"
+    cp -rf "$src"/. "$dest/"
+    ok "Tema GTK MacTahoe instalado"
 }
 
-# ── Módulo 6: Icons + cursors ────────────────────────────────────────────────
-# Instala WhiteSur-icon-theme y WhiteSur-cursors desde sus repos upstream.
-install_icons_cursors() {
-    step "Icons + cursors — WhiteSur"
-
-    local tmp_dir
-    tmp_dir="$(mktemp -d)"
-    trap 'rm -rf "${tmp_dir:-}" 2>/dev/null || true' RETURN
-
-    # Icons
-    info "Cloning WhiteSur-icon-theme..."
-    git clone --depth=1 --branch "$WHITESUR_ICON_REF" https://github.com/vinceliuice/WhiteSur-icon-theme.git \
-        "$tmp_dir/WhiteSur-icon-theme" 2>&1 | tee -a "$LOG_FILE"
-
-    info "Installing WhiteSur icon theme..."
-    bash "$tmp_dir/WhiteSur-icon-theme/install.sh" -a 2>&1 | tee -a "$LOG_FILE" \
-        || warn "icon theme install returned non-zero"
-
-    # Cursors
-    info "Cloning WhiteSur-cursors..."
-    git clone --filter=blob:none https://github.com/vinceliuice/WhiteSur-cursors.git \
-        "$tmp_dir/WhiteSur-cursors" 2>&1 | tee -a "$LOG_FILE" \
-        && git -C "$tmp_dir/WhiteSur-cursors" checkout "$WHITESUR_CURSORS_SHA" 2>&1 | tee -a "$LOG_FILE"
-
-    info "Installing WhiteSur cursors..."
-    bash "$tmp_dir/WhiteSur-cursors/install.sh" 2>&1 | tee -a "$LOG_FILE" \
-        || warn "cursor theme install returned non-zero"
-
-    # Aplicar en KDE (cambio permanente vía kwriteconfig6)
-    if command -v kwriteconfig6 &>/dev/null; then
-        kwriteconfig6 --file kdeglobals --group Icons --key Theme WhiteSur
-        kwriteconfig6 --file kcminputrc --group Mouse --key cursorTheme WhiteSur-cursors
-        info "KDE icon + cursor theme configured"
-    fi
-
-    # Aplicar cursor en sesión activa (|| true — puede fallar en headless)
-    plasma-apply-cursortheme WhiteSur-cursors 2>&1 | tee -a "$LOG_FILE" \
-        || warn "plasma-apply-cursortheme returned non-zero (normal fuera de sesión gráfica)"
-
-    ok "Icons and cursors installed (WhiteSur)"
-}
-
-# ── Módulo 7: Window decorations ─────────────────────────────────────────────
-# Aurorae WhiteSur + botones en la izquierda (estilo macOS: cerrar/min/max).
-# El tema Aurorae se instala con WhiteSur-kde (módulo 4).
-apply_window_decorations() {
-    step "Window decorations — Aurorae WhiteSur + macOS button layout"
-
-    if command -v kwriteconfig6 &>/dev/null; then
-        # Seleccionar el backend Aurorae para las decoraciones de ventana
-        kwriteconfig6 --file kwinrc \
-            --group org.kde.kdecoration2 --key library org.kde.kwin.aurorae
-
-        # Tema específico dentro de Aurorae
-        kwriteconfig6 --file kwinrc \
-            --group org.kde.kdecoration2 --key theme __aurorae__svg__WhiteSur
-
-        # Layout de botones estilo macOS: cierre/minimizar/maximizar a la IZQUIERDA
-        # Códigos: X=close, I=minimize, A=maximize, M=menu, S=on-all-desktops
-        kwriteconfig6 --file kwinrc \
-            --group org.kde.kdecoration2 --key ButtonsOnLeft "XIA"
-        kwriteconfig6 --file kwinrc \
-            --group org.kde.kdecoration2 --key ButtonsOnRight ""
-
-        info "Aurorae WhiteSur decoration and macOS button layout configured"
-    else
-        warn "kwriteconfig6 not found — skipping window decoration config"
-    fi
-
-    # Recargar KWin para aplicar sin cerrar sesión
-    [[ -n "$QDBUS" ]] && "$QDBUS" org.kde.KWin /KWin reconfigure 2>/dev/null \
-        || warn "KWin reconfigure skipped (QDBUS not available or headless)"
-
-    ok "Window decorations applied (Aurorae WhiteSur, macOS left buttons)"
-}
-
-# ── Módulo 8: Wallpapers ─────────────────────────────────────────────────────
-# Instala la colección WhiteSur-wallpapers y establece uno como fondo de Plasma.
-install_wallpapers() {
-    step "Wallpapers — WhiteSur"
-
-    ensure_git   # clona el repo WhiteSur-wallpapers con git
-
-    local tmp_dir
-    tmp_dir="$(mktemp -d)"
-    trap 'rm -rf "${tmp_dir:-}" 2>/dev/null || true' RETURN
-
-    info "Cloning WhiteSur-wallpapers..."
-    git clone --depth=1 --branch "$WHITESUR_WALLPAPERS_REF" https://github.com/vinceliuice/WhiteSur-wallpapers.git \
-        "$tmp_dir/WhiteSur-wallpapers" 2>&1 | tee -a "$LOG_FILE"
-
-    # El repo usa install-wallpapers.sh o install.sh según la versión del upstream
-    local install_script
-    if [[ -f "$tmp_dir/WhiteSur-wallpapers/install-wallpapers.sh" ]]; then
-        install_script="install-wallpapers.sh"
-    else
-        install_script="install.sh"
-    fi
-
-    info "Installing WhiteSur wallpapers..."
-    bash "$tmp_dir/WhiteSur-wallpapers/$install_script" 2>&1 | tee -a "$LOG_FILE" \
-        || warn "wallpaper install returned non-zero"
-
-    # Establecer un wallpaper por defecto en Plasma (|| true — requiere sesión gráfica activa).
-    # El install.sh instala los wallpapers como KPackages de Plasma en
-    # ~/.local/share/wallpapers/WhiteSur-{light,dark}; plasma-apply-wallpaperimage
-    # acepta el directorio del KPackage directamente.
-    local wallpaper_pkg
-    for wallpaper_pkg in \
-        "${HOME}/.local/share/wallpapers/WhiteSur-light" \
-        "/usr/share/wallpapers/WhiteSur-light" \
-        "${HOME}/.local/share/wallpapers/WhiteSur"; do
-        [[ -d "$wallpaper_pkg" ]] && break
-    done
-
-    if [[ -d "$wallpaper_pkg" ]]; then
-        plasma-apply-wallpaperimage "$wallpaper_pkg" 2>&1 | tee -a "$LOG_FILE" \
-            || warn "plasma-apply-wallpaperimage returned non-zero (normal fuera de sesión gráfica)"
-        info "Wallpaper set: $wallpaper_pkg"
-    else
-        warn "Default wallpaper path not found — set manually from System Settings"
-    fi
-
-    ok "WhiteSur wallpapers installed"
+# ── plasma6macos assets — Kvantum ────────────────────────────────────────────
+# Estilo de widgets Qt: Kvantum + tema MacSequoia. El pack pone widgetStyle=Darkly
+# en su look-and-feel, pero Darkly NO se distribuye en el pack; usamos Kvantum
+# MacSequoia (que sí viene y da los menús translúcidos del video). apply_macos_config
+# fuerza widgetStyle=kvantum DESPUÉS de aplicar el look-and-feel.
+install_macos_kvantum() {
+    step "plasma6macos — Kvantum (MacSequoia widget style)"
+    command -v kvantummanager &>/dev/null || dnf_install kvantum
+    _extract_vendor plasma6macos-kvantum-config.zip || return 0
+    local src="$_VENDOR_TMP"
+    trap 'rm -rf "${src:-}" 2>/dev/null || true' RETURN
+    local dest="${HOME}/.config/Kvantum"
+    mkdir -p "$dest"
+    cp -rf "$src"/. "$dest/"
+    ok "Kvantum MacSequoia instalado"
 }
 
 # ── Módulo 9: Panel layout (FALLBACK procedural) ─────────────────────────────
@@ -858,11 +697,28 @@ apply_macos_layout() {
     cp "$appletsrc" "$target"
     info "Layout plasma6macos aplicado"
 
-    # Look-and-feel MacSequoia (estilo Plasma + esquema de color + deco en un paso).
+    # Look-and-feel MacSequoia (estilo Plasma + esquema de color + iconos MacTahoe +
+    # Aurorae + cursor en un paso).
     if command -v plasma-apply-lookandfeel &>/dev/null; then
         plasma-apply-lookandfeel -a "$MACOS_LNF" 2>&1 | tee -a "$LOG_FILE" \
             || warn "plasma-apply-lookandfeel devolvió non-zero (normal sin sesión gráfica)"
     fi
+
+    # Overrides DESPUÉS del look-and-feel (el LnF setea widgetStyle=Darkly, que no
+    # distribuimos): forzamos Kvantum MacSequoia + tema GTK MacTahoe.
+    if command -v kwriteconfig6 &>/dev/null; then
+        kwriteconfig6 --file kdeglobals --group KDE     --key widgetStyle kvantum
+        kwriteconfig6 --file kdeglobals --group General --key GtkTheme MacTahoe-Light
+    fi
+    command -v kvantummanager &>/dev/null \
+        && kvantummanager --set MacSequoia 2>&1 | tee -a "$LOG_FILE" || true
+
+    # Wallpaper MacSequoia (instalado por install_macos_plasma_theme).
+    if command -v plasma-apply-wallpaperimage &>/dev/null; then
+        plasma-apply-wallpaperimage "${HOME}/.local/share/wallpapers/MacSequoia-Light" 2>&1 \
+            | tee -a "$LOG_FILE" || warn "wallpaper apply non-zero (normal sin sesión gráfica)"
+    fi
+    [[ -n "$QDBUS" ]] && "$QDBUS" org.kde.KWin /KWin reconfigure 2>/dev/null || true
 
     # Recargar plasmashell para tomar el nuevo appletsrc. Solo con sesión gráfica;
     # headless avisa que hay que volver a entrar.
@@ -881,24 +737,40 @@ apply_macos_layout() {
     fi
 }
 
-# Umbrella del look macOS del video. Cada sub-paso corre aislado vía run_module.
-install_macos_look() {
-    run_module "plasma6macos plasmoids"      install_macos_plasmoids
-    run_module "plasma6macos MacSequoia theme" install_macos_plasma_theme
-    run_module "plasma6macos KWin effects"   install_macos_kwin_effects
-    run_module "plasma6macos panel layout"   apply_macos_layout
+# Aplica el wallpaper MacSequoia (lo instala install_macos_plasma_theme). Existe
+# como módulo suelto por paridad con Arch (--wallpapers).
+set_macos_wallpaper() {
+    step "Wallpaper — MacSequoia"
+    local wp="${HOME}/.local/share/wallpapers/MacSequoia-Light"
+    [[ -d "$wp" ]] || install_macos_plasma_theme
+    if command -v plasma-apply-wallpaperimage &>/dev/null; then
+        plasma-apply-wallpaperimage "$wp" 2>&1 | tee -a "$LOG_FILE" \
+            || warn "wallpaper apply non-zero (normal sin sesión gráfica)"
+        ok "Wallpaper MacSequoia aplicado"
+    else
+        warn "plasma-apply-wallpaperimage no disponible — seteá el wallpaper a mano"
+    fi
 }
 
-# Stack visual WhiteSur completo (Plasma + Aurorae + GTK + Kvantum + iconos +
-# cursores). Mismo concepto y resultado que --theme de Arch. Cada sub-paso corre
-# aislado vía run_module para que un fallo no tumbe al resto.
+# Umbrella del look macOS del video (pack plasma6macos COMPLETO). Primero los
+# assets (iconos/fuentes/gtk/kvantum/plasmoides/tema/kwin), después la config
+# (apply_macos_layout: look-and-feel + overrides + wallpaper + layout). Cada
+# sub-paso corre aislado vía run_module para que un fallo no tumbe al resto.
+install_macos_look() {
+    run_module "Iconos + cursores (MacTahoe)" install_macos_icons_cursors
+    run_module "Fuentes del pack"             install_macos_fonts
+    run_module "Tema GTK (MacTahoe)"          install_macos_gtk
+    run_module "Kvantum (MacSequoia)"         install_macos_kvantum
+    run_module "Plasmoides"                   install_macos_plasmoids
+    run_module "Tema MacSequoia (Plasma)"     install_macos_plasma_theme
+    run_module "Efectos KWin"                 install_macos_kwin_effects
+    run_module "Layout + look (config)"       apply_macos_layout
+}
+
+# El "tema" en Fedora ES el pack plasma6macos completo (MacSequoia). Reemplazó al
+# stack WhiteSur. --theme y --macos-look hacen lo mismo (alias por paridad con Arch).
 install_theme() {
-    ensure_git   # los sub-módulos clonan repos WhiteSur con git
-    run_module "WhiteSur themes"     install_whitesur_themes
-    run_module "WhiteSur GTK theme"  install_whitesur_gtk
-    run_module "Kvantum"             apply_kvantum
-    run_module "Icons + cursors"     install_icons_cursors
-    run_module "Window decorations"  apply_window_decorations
+    install_macos_look
 }
 
 # Lanzador tipo Spotlight. KDE ya trae KRunner nativo — no hay nada que instalar.
@@ -979,13 +851,11 @@ debloat_system() {
 run_all() {
     run_module "Repos (RPM Fusion + Flathub)" setup_repos
     run_module "Hardware (microcode + GPU)"   configure_hardware
-    install_theme       # WhiteSur base (GTK/Kvantum/iconos/cursores)
-    run_module "Fonts"                        install_fonts
+    run_module "Fonts (Cascadia + emoji)"     install_fonts
     run_module "Terminal (Konsole)"           install_terminal
     run_module "Launcher (KRunner native)"    install_launcher
     run_module "Apps + dev + firewall"        install_apps
-    run_module "Wallpapers"                   install_wallpapers
-    install_macos_look  # plasma6macos: MacSequoia + plasmoides + KWin + layout del video
+    install_macos_look  # pack plasma6macos COMPLETO: MacSequoia + iconos + gtk + kvantum + plasmoides + layout
     run_module "Login (look macOS)"           apply_login
     run_module "Keyboard"                     configure_keyboard
 
@@ -1004,7 +874,7 @@ case "${1:-}" in
     --terminal)   run_module "Terminal (Konsole)"           install_terminal;   print_summary ;;
     --launcher)   run_module "Launcher (KRunner native)"    install_launcher;   print_summary ;;
     --apps)       run_module "Apps + dev + firewall"        install_apps;       print_summary ;;
-    --wallpapers) run_module "Wallpapers"                   install_wallpapers; print_summary ;;
+    --wallpapers) run_module "Wallpaper (MacSequoia)"       set_macos_wallpaper; print_summary ;;
     --keyboard)   run_module "Keyboard"                     configure_keyboard; print_summary ;;
     --login)      run_module "Login (look macOS)"           apply_login;        print_summary ;;
     --debloat)    run_module "Debloat (Fedora-only)"        debloat_system;     print_summary ;;

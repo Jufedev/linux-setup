@@ -1,6 +1,6 @@
 # linux-setup — Escritorio Linux con look macOS
 
-Setup automatizado para dejar **Fedora 44 + KDE** o **Arch + GNOME** con estética macOS completa: tema WhiteSur, fuentes Cascadia Code + emojis Apple, terminal, prompt y apps equivalentes. Un solo comando por distro.
+Setup automatizado para dejar **Fedora 44 + KDE** o **Arch + GNOME** con estética macOS completa: tema macOS (pack **plasma6macos/MacSequoia** en KDE, **WhiteSur** en GNOME), fuentes Cascadia Code + emojis Apple, terminal, prompt y apps equivalentes. Un solo comando por distro.
 
 ```bash
 git clone https://github.com/Jufedev/linux-setup.git ~/linux-setup
@@ -22,7 +22,7 @@ bash setup.sh --all      # detecta tu distro y corre el setup que corresponde
 | Terminal | Kitty | Konsole |
 | Lanzador (Spotlight) | Ulauncher | KRunner (nativo) |
 | Dock | Dash-to-Dock | Panel flotante nativo |
-| Tema macOS | WhiteSur (GTK + Shell) | WhiteSur (Plasma + Kvantum + Aurorae) |
+| Tema macOS | WhiteSur (GTK + Shell) | plasma6macos: MacSequoia + iconos MacTahoe + Kvantum + Aurorae |
 | Fuentes | Cascadia Code + Apple emoji + Inter | *(igual)* |
 | Kernel / performance | CachyOS (BORE) *opcional* | stock |
 | Instalación base | scripteada (`install.sh`) | manual (instalador gráfico) |
@@ -270,7 +270,7 @@ En vez del metapaquete `gnome` (~40 apps), solo lo esencial.
 
 ### Fedora — KDE Spin
 
-**Sí:** RPM Fusion + Flathub, fuentes (Cascadia/Apple emoji/Inter/Windows libres), stack WhiteSur completo (Plasma + Kvantum + Aurorae + GTK + iconos + cursores + wallpapers), flameshot, podman, distrobox, Chrome + Edge (Flatpak), firewalld.
+**Sí:** RPM Fusion + Flathub, fuentes (Cascadia/Apple emoji/Inter/Windows libres), pack **plasma6macos** completo (MacSequoia + iconos MacTahoe + GTK + Kvantum + Aurorae + plasmoides + KWin + wallpaper + login), flameshot, podman, distrobox, Chrome + Edge (Flatpak), firewalld.
 
 **NO:** tema de la pantalla de login (Fedora 44 reemplazó SDDM por el Plasma Login Manager; no vale la pena mantenerlo), zoom parabólico del dock *(widget sin mantener en Plasma 6)*. KDE ya trae Konsole, Dolphin, KRunner, etc. de fábrica.
 
