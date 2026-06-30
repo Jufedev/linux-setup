@@ -206,7 +206,7 @@ print_summary() {
 # MÓDULOS
 # ============================================================================
 
-# ── Módulo 1: Repos ─────────────────────────────────────────────────────────
+# ── Repos ─────────────────────────────────────────────────────────
 setup_repos() {
     step "Repos — RPM Fusion + Flathub"
 
@@ -231,7 +231,7 @@ setup_repos() {
     ok "Repos configured (RPM Fusion + Flathub)"
 }
 
-# ── Módulo 2: Fuentes ────────────────────────────────────────────────────────
+# ── Fuentes ────────────────────────────────────────────────────────
 install_fonts() {
     step "Fonts — Inter + Cascadia Code Nerd Font + Apple Emoji + Windows-equivalent"
 
@@ -319,7 +319,7 @@ install_fonts() {
     ok "Fonts installed"
 }
 
-# ── Módulo 3: Apps ───────────────────────────────────────────────────────────
+# ── Apps ───────────────────────────────────────────────────────────
 install_apps() {
     step "Apps + dev tools + firewall"
 
@@ -377,11 +377,13 @@ install_macos_icons_cursors() {
     local dest="${HOME}/.local/share/icons"
     mkdir -p "$dest"
     if _extract_vendor plasma6macos-icons.zip; then
-        cp -rf "$_VENDOR_TMP"/. "$dest/"; rm -rf "$_VENDOR_TMP"
+        cp -rf "$_VENDOR_TMP"/. "$dest/" || warn "no se pudieron copiar todos los iconos"
+        rm -rf "$_VENDOR_TMP"
         info "Iconos MacTahoe instalados"
     fi
     if _extract_vendor plasma6macos-cursors.zip; then
-        cp -rf "$_VENDOR_TMP"/. "$dest/"; rm -rf "$_VENDOR_TMP"
+        cp -rf "$_VENDOR_TMP"/. "$dest/" || warn "no se pudieron copiar todos los cursores"
+        rm -rf "$_VENDOR_TMP"
         info "Cursores WhiteSur instalados"
     fi
     command -v gtk-update-icon-cache &>/dev/null \
@@ -434,7 +436,7 @@ install_macos_kvantum() {
     ok "Kvantum MacSequoia instalado"
 }
 
-# ── Módulo 9: Panel layout (FALLBACK procedural) ─────────────────────────────
+# ── Panel layout (FALLBACK procedural) ─────────────────────────────
 # Layout macOS básico (barra + dock) vía Plasma Scripting API. Es el FALLBACK:
 # --all usa install_macos_look (layout fiel del video). Esto queda como --desktop
 # para quien quiera el layout mínimo sin el pack. El JS borra los paneles y los
@@ -463,7 +465,7 @@ configure_desktop() {
     ok "Panel layout applied (top menu bar + bottom icon dock)"
 }
 
-# ── Módulo 10: Konsole profile ───────────────────────────────────────────────
+# ── Konsole profile ───────────────────────────────────────────────
 # Copia el perfil y el esquema de color MacOS a ~/.local/share/konsole/
 # y configura Konsole para usarlo como perfil por defecto.
 install_terminal() {
@@ -501,7 +503,7 @@ install_terminal() {
     ok "Konsole profile installed (MacOS)"
 }
 
-# ── Módulo 11: Keyboard layout ──────────────────────────────────────────────
+# ── Keyboard layout ──────────────────────────────────────────────
 configure_keyboard() {
     step "Keyboard layout — English intl (AltGr dead keys)"
 
@@ -521,7 +523,7 @@ configure_keyboard() {
     ok "Keyboard layout set (us, altgr-intl)"
 }
 
-# ── Módulo 13: GPU / NVIDIA ───────────────────────────────────────────────────
+# ── GPU / NVIDIA ───────────────────────────────────────────────────
 # Driver NVIDIA para placas dedicadas. Blackwell (RTX serie 50, ej. 5060 Ti)
 # REQUIERE los módulos abiertos (akmod-nvidia-open); el módulo propietario clásico
 # ya no soporta esta arquitectura. Detección por lspci; para testear en VM sin la

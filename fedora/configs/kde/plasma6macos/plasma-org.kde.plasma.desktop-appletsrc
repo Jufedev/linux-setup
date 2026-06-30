@@ -155,13 +155,6 @@ DialogWidth=810
 immutability=1
 plugin=Plasma.Flex.Hub
 
-[Containments][3][Applets][75][Configuration][General]
-elements=0,15,7,10,14
-gridHeight=4
-gridWidth=4
-xElements=0,2,0,0,2
-yElements=0,0,2,3,3
-
 [Containments][3][Applets][75][Configuration][ConfigDialog]
 DialogHeight=630
 DialogWidth=810
