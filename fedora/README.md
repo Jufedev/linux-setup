@@ -13,13 +13,13 @@ Btrfs snapshot before running the theming modules.
 
 ```bash
 # Option A — snapper (if configured)
-sudo snapper -c root create -d "pre-whitesur"
+sudo snapper -c root create -d "pre-macos"
 
 # Option B — raw btrfs snapshot
-sudo btrfs subvolume snapshot / /.snapshots/pre-whitesur-$(date +%F)
+sudo btrfs subvolume snapshot / /.snapshots/pre-macos-$(date +%F)
 
 # Option C — Timeshift (GUI or CLI)
-sudo timeshift --create --comments "pre-whitesur"
+sudo timeshift --create --comments "pre-macos"
 ```
 
 > **Kernel fallback**: Fedora keeps the previous kernel in GRUB (`installonly_limit=3`
@@ -70,7 +70,7 @@ The script is safe to re-run. Each module is idempotent.
 | `--desktop` | **Fallback** minimal panel layout (top bar + bottom dock) via Plasma Scripting API; clock shows 24h + date. `--all` uses `--macos-look` instead |
 | `--terminal` | Installs MacOS Konsole profile and color scheme, sets as default |
 | `--launcher` | KRunner is native to KDE — no-op (Meta or Alt+Space) |
-| `--apps` | Installs flameshot, podman, distrobox, GNOME Calendar, Chrome + Edge (Flatpak); enables firewalld and sets the default zone to `public` (deny incoming) |
+| `--apps` | Installs flameshot, podman, distrobox, GNOME Calendar, lm_sensors (CPU temp), Chrome + Edge (Flatpak); enables firewalld and sets the default zone to `public` (deny incoming) |
 | `--wallpapers` | Applies the MacSequoia wallpaper (installs it from the pack if missing) |
 | `--keyboard` | Sets English intl (AltGr dead keys) keyboard layout (KDE session + system-wide via localectl) |
 | `--login` | macOS login look (from the pack). **Additive + reversible:** sets the greeter wallpaper via a drop-in (Plasma Login Manager on Fedora 44) or installs the `tahoe-sddm` theme (SDDM spins). Never touches autologin or the manager itself |
@@ -200,7 +200,7 @@ all install the **full pack**, vendored in
 | GTK theme | **MacTahoe** GTK3/GTK4 for GTK apps |
 | Kvantum | **MacSequoia** Qt widget style (the translucent menus) |
 | Fonts | Pack fonts (Adwaita Sans/Mono) |
-| Plasmoids | **Tahoe Launcher** (the apps/Launchpad button), **KdeControlStation** (iOS-style Control Center), **kMenu** (the  menu), weather, window title-bar |
+| Plasmoids | **Tahoe Launcher** (the apps/Launchpad button), **Flex Hub** (the modular macOS Control Center), **kMenu** (the  menu), **Freyry weather** (pinned to Bogotá), window title-bar |
 | MacSequoia theme | Plasma desktop theme + Aurorae window decoration + color schemes + look-and-feel (`MacSequoia-Light` by default) + wallpaper |
 | KWin effects | Blur + kinetic open/close/maximize animations |
 | Panel layout | The pack's exact `appletsrc` (top menu bar + floating dock). `dev.xarbit.appgrid` swapped for the bundled `TahoeLauncher`; dock launchers fixed to KDE app IDs (Dolphin) |
@@ -225,7 +225,8 @@ forces `widgetStyle=kvantum` (MacSequoia) right after applying the look-and-feel
 | Panel layout | `--all`/`--macos-look` drops the pack's `appletsrc` and restarts plasmashell (a backup is saved to `*.pre-macos.bak`). `--desktop` is a minimal procedural fallback (`panel-layout.js`) that rebuilds panels on each run — manual panel customizations are reset. Re-test after a major Plasma version upgrade. |
 | Global menu (GTK apps) | The `org.kde.plasma.appmenu` widget works natively for KDE/Qt apps. GTK app menus require `appmenu-gtk3-module` (install via `dnf install appmenu-gtk3-module`). |
 | Firewall (deny incoming) | `--apps` sets firewalld's default zone to `public` (deny incoming except ssh/dhcpv6/mdns), matching the Arch setup. Fedora's stock `FedoraWorkstation` zone leaves ports 1025-65535 open — that is overridden. **KDE Connect / LAN file sharing need their ports opened manually** (e.g. `sudo firewall-cmd --permanent --add-service=kdeconnect && sudo firewall-cmd --reload`). |
-| Headless / CI runs | Modules 4–10 apply Plasma config and may print warnings when no graphical session is active. The script continues and returns the correct exit code. |
+| Control Center | The control center is the modular **Flex Hub**. Its grid is configured **only through its own "Edit Controls" / Control Builder editor** — it ignores a pre-seeded layout in the dropped `appletsrc`, so the exact cards (and any custom sensor cards) are set up in the GUI. **GPU and temperature sensors only exist on real hardware** (NVIDIA driver + `lm_sensors`/`sensors-detect`); they won't appear in a VM. The built-in *Monitor* card covers CPU + RAM usage. |
+| Headless / CI runs | The Plasma-config modules may print warnings when no graphical session is active. The script continues and returns the correct exit code. |
 | Flatpak needs a desktop session | `--repos` and `--apps` run **system-level** Flatpak ops (add the Flathub remote, install Chrome/Edge) that require a **polkit agent**. From a Plasma session they prompt for authorization and succeed; over SSH/headless they fail with `not allowed for user`. The intended flow is: install Fedora to disk → boot the desktop → `git clone` → run the scripts from Konsole. |
 
 ## Next Steps

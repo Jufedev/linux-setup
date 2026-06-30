@@ -21,7 +21,7 @@ guarantees the macOS look survives even if the upstream listing disappears or ch
 | `plasma6macos-gtk-theme.zip` | MacTahoe GTK3/GTK4 theme | `~/.local/share/themes/` |
 | `plasma6macos-kvantum-config.zip` | MacSequoia Kvantum widget style | `~/.config/Kvantum/` |
 | `plasma6macos-fonts.zip` | Pack fonts (Adwaita Sans/Mono) | `~/.local/share/fonts/` |
-| `plasma6macos-plasmoids.zip` | Custom plasmoids (Tahoe Launcher, KdeControlStation, kMenu, weather, title-bar) | `~/.local/share/plasma/plasmoids/` |
+| `plasma6macos-plasmoids.zip` | Custom plasmoids (Tahoe Launcher, Flex Hub control center, kMenu, weather, title-bar; plus other bundled hubs/widgets) | `~/.local/share/plasma/plasmoids/` |
 | `plasma6macos-plasma-theme.zip` | MacSequoia desktop theme, Aurorae deco, color-schemes, look-and-feel, wallpapers | `~/.local/share/plasma/`, `~/.local/share/aurorae/`, `~/.local/share/color-schemes/` |
 | `plasma6macos-kwin-effect.zip` | KWin kinetic effects + scripts + blur wallpaper plugin | `~/.local/share/kwin/`, `~/.local/share/plasma/wallpapers/` |
 | `plasma6macos-sddm.zip` | Login theming for both Plasma Login Manager (`plasmalogin.conf`) and SDDM (`tahoe-sddm`) | `/var/lib/plasmalogin/`, `/usr/share/sddm/themes/` |

@@ -371,7 +371,7 @@ install_apps() {
 # ── plasma6macos assets — iconos + cursores ──────────────────────────────────
 # Iconos MacTahoe (lo que el look-and-feel MacSequoia referencia) + cursores
 # WhiteSur-cursors (idem). Van a ~/.local/share/icons/. La SELECCIÓN del tema la
-# hace apply_macos_config vía el look-and-feel.
+# hace apply_macos_layout vía el look-and-feel.
 install_macos_icons_cursors() {
     step "plasma6macos — iconos (MacTahoe) + cursores (WhiteSur)"
     local dest="${HOME}/.local/share/icons"
@@ -405,7 +405,7 @@ install_macos_fonts() {
 
 # ── plasma6macos assets — tema GTK ───────────────────────────────────────────
 # Tema GTK MacTahoe (apps GTK3/GTK4). Va a ~/.local/share/themes/. La selección
-# (GtkTheme) la hace apply_macos_config.
+# (GtkTheme) la hace apply_macos_layout.
 install_macos_gtk() {
     step "plasma6macos — tema GTK (MacTahoe)"
     _extract_vendor plasma6macos-gtk-theme.zip || return 0
@@ -420,7 +420,7 @@ install_macos_gtk() {
 # ── plasma6macos assets — Kvantum ────────────────────────────────────────────
 # Estilo de widgets Qt: Kvantum + tema MacSequoia. El pack pone widgetStyle=Darkly
 # en su look-and-feel, pero Darkly NO se distribuye en el pack; usamos Kvantum
-# MacSequoia (que sí viene y da los menús translúcidos del video). apply_macos_config
+# MacSequoia (que sí viene y da los menús translúcidos del video). apply_macos_layout
 # fuerza widgetStyle=kvantum DESPUÉS de aplicar el look-and-feel.
 install_macos_kvantum() {
     step "plasma6macos — Kvantum (MacSequoia widget style)"
