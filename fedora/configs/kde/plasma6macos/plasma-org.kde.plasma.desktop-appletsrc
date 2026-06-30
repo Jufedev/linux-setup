@@ -153,34 +153,14 @@ DialogWidth=810
 
 [Containments][3][Applets][75]
 immutability=1
-plugin=KdeControlStation
+plugin=Plasma.Flex.Hub
 
-[Containments][3][Applets][75][Configuration]
-popupHeight=460
-popupWidth=313
-
-[Containments][3][Applets][75][Configuration][Appearance]
-animations=true
-customButtonImage=step_object_Controller-symbolic
-darkTheme=MacSequoiaDark
-layout=3
-lightTheme=MacSequoiaLight
-scale=95
-showAvatar=false
-showBattery=false
-showBrightness=false
-showColorSwitcher=false
-showDnd=false
-showKDEConnect=false
-showMediaPlayer=true
-showNightLight=false
-showPercentage=true
-showScreenshot=true
-showSessionActions=true
-showVolume=true
-transparency=true
-transparencyLevel=50
-useCustomButtonImage=true
+[Containments][3][Applets][75][Configuration][General]
+elements=0,15,7,10,14
+gridHeight=4
+gridWidth=4
+xElements=0,2,0,0,2
+yElements=0,0,2,3,3
 
 [Containments][3][Applets][75][Configuration][ConfigDialog]
 DialogHeight=630
