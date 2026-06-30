@@ -360,7 +360,13 @@ DialogHeight=630
 DialogWidth=810
 
 [Containments][3][Applets][83][Configuration][Weather]
+ipLocation=false
+latitudeLocalized=4.7110
+longitudeLocalized=-74.0721
 selectedMetrics=Wind Speed,Feels Like,UV Level,Rain,Max/Min,Sunrise / Sunset
+temperatureUnit=Celsius
+textUbication=Bogotá
+updateRecent=true
 
 [Containments][3][Applets][84]
 immutability=1
