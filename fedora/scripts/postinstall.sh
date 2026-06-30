@@ -325,11 +325,14 @@ install_apps() {
 
     # Herramientas de captura de pantalla y contenedores + GNOME Calendar
     # (el calendario macOS-style del dock; su icono muestra la fecha del día).
+    # lm_sensors expone la temperatura del CPU a KSystemStats → necesario para que
+    # el sensor de temp de CPU aparezca en el Control Center (Flex Hub) y monitores.
     dnf_install \
         flameshot \
         podman \
         distrobox \
-        gnome-calendar
+        gnome-calendar \
+        lm_sensors
 
     ok "flameshot + podman + distrobox + gnome-calendar installed"
 
