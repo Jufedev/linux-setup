@@ -113,7 +113,7 @@ dependencies):
 
 The `--hardware` module installs the **open kernel modules** (`akmod-nvidia-open`) —
 the only supported option for Blackwell cards (RTX 50 series, e.g. RTX 5060 Ti).
-The legacy proprietary module no longer supports this architecture.
+The proprietary module does not support this architecture.
 
 ```bash
 bash fedora/scripts/postinstall.sh --hardware
@@ -188,9 +188,9 @@ driver fix lands.
 ## The macOS look (plasma6macos)
 
 The entire KDE look is the **plasma6macos** pack (author: Lsteam — KDE Store).
-WhiteSur was removed: the pack's theme is **MacSequoia** + **MacTahoe** icons
-(vinceliuice) plus custom plasmoids that WhiteSur doesn't ship, and mixing both
-only caused conflicts (e.g. broken icons). `--theme`, `--macos-look` and `--all`
+Its theme is **MacSequoia** + **MacTahoe** icons (vinceliuice) plus custom
+plasmoids; WhiteSur is not used (only its cursors) because mixing both themes
+causes conflicts (e.g. broken icons). `--theme`, `--macos-look` and `--all`
 all install the **full pack**, vendored in
 [`shared/vendor/plasma6macos/`](../shared/vendor/plasma6macos/ATTRIBUTION.md)
 (the module logic lives in `shared/plasma6macos.sh`, shared with the Arch setup):
