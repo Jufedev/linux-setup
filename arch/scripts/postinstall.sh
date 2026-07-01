@@ -355,8 +355,10 @@ install_fonts() {
 install_apps() {
     step "Apps, seguridad y entorno de desarrollo"
 
-    # Apps
-    pac_install flameshot
+    # Apps. gnome-calendar es el calendario macOS-style del dock (el layout del
+    # pack lo fija como launcher y su icono muestra la fecha del día) — igual que
+    # en Fedora.
+    pac_install flameshot gnome-calendar
     aur_install google-chrome microsoft-edge-stable-bin
 
     # Firewall — deny incoming, allow outgoing. Guardas explícitas: una feature de
