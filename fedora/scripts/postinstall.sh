@@ -539,7 +539,7 @@ configure_hardware() {
 # compartido shared/plasma6macos.sh — se sourcea al inicio del script.
 
 # Lanzador tipo Spotlight. KDE ya trae KRunner nativo — no hay nada que instalar.
-# Existe por paridad con Arch (--launcher = Ulauncher).
+# El flag existe por paridad con Arch, donde --launcher es el mismo no-op.
 install_launcher() {
     step "Launcher — KRunner (nativo)"
     ok "KRunner ya viene con KDE Plasma — nada que instalar (Meta o Alt+Space)"

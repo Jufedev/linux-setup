@@ -32,23 +32,24 @@ FAILED_MODULES=()
 
 [[ ! -d "$KDE_CONFIGS_DIR" ]] && { warn "Directorio de configs no encontrado: $KDE_CONFIGS_DIR — continuando de todos modos"; }
 
-# ── Sincronizar base de datos de pacman ───────────────────────────────────
-info "Sincronizando base de datos de pacman..."
-sudo pacman -Sy --noconfirm &>/dev/null
-ok "Base de datos sincronizada"
-
 # ── Resolver qdbus6 ──────────────────────────────────────────────────────────
 # En Arch el binario Qt6 es qdbus6 (paquete qt6-tools, lo instala --kde); se
 # contemplan los otros nombres por paridad con Fedora. Exportamos $QDBUS para
-# que todos los módulos lo usen sin repetir esta lógica.
-QDBUS=""
-for _qd in qdbus6 qdbus-qt6 qdbus; do
-    if command -v "$_qd" &>/dev/null; then
-        QDBUS="$_qd"
-        break
-    fi
-done
-export QDBUS
+# que todos los módulos lo usen sin repetir esta lógica. Es función porque en
+# un --all desde cero qt6-tools no existe todavía al arrancar el script:
+# install_kde vuelve a llamarla cuando el paquete ya está instalado.
+resolve_qdbus() {
+    QDBUS=""
+    local _qd
+    for _qd in qdbus6 qdbus-qt6 qdbus; do
+        if command -v "$_qd" &>/dev/null; then
+            QDBUS="$_qd"
+            break
+        fi
+    done
+    export QDBUS
+}
+resolve_qdbus
 
 # ── Módulo compartido plasma6macos ───────────────────────────────────────────
 # Las funciones del look macOS (install_macos_*, apply_macos_layout, install_theme,
@@ -59,10 +60,30 @@ MACOS_PKG_INSTALL="pac_install"
 source "${SHARED_DIR}/plasma6macos.sh"
 
 # ── Helpers ────────────────────────────────────────────────────────────────
+# Sincroniza la base de datos de pacman UNA vez por ejecución, y solo cuando
+# algo va a instalar paquetes de verdad (los flags no-op, el menú y los errores
+# de uso no deben pedir sudo). Se usa -Sy y no -Syu: --all y --cachyos ya hacen
+# -Syu; para flags sueltos se asume un sistema recién instalado o actualizado
+# (correr -Sy + instalar sobre un sistema muy desactualizado puede causar un
+# partial upgrade — en ese caso corre 'sudo pacman -Syu' antes).
+_PACMAN_SYNCED=0
+pacman_sync() {
+    if [[ $_PACMAN_SYNCED -eq 0 ]]; then
+        info "Sincronizando base de datos de pacman..."
+        if sudo pacman -Sy --noconfirm 2>&1 | tee -a "$LOG_FILE" >/dev/null; then
+            ok "Base de datos sincronizada"
+        else
+            warn "pacman -Sy falló — continúo con la base de datos actual (log: $LOG_FILE)"
+        fi
+        _PACMAN_SYNCED=1
+    fi
+}
+
 # Estrategia: intentar el batch (rápido, resuelve dependencias juntas). Si falla,
 # reintentar paquete por paquete para que UN paquete roto no arrastre al resto.
 # Los fallos se registran en FAILED_PKGS y el script CONTINÚA.
 pac_install() {
+    pacman_sync
     info "Instalando (pacman): $*"
     if sudo pacman -S --noconfirm --needed "$@" 2>&1 | tee -a "$LOG_FILE"; then
         return 0
@@ -197,6 +218,11 @@ install_kde() {
 
     sudo systemctl enable sddm
     sudo systemctl enable bluetooth
+
+    # qt6-tools acaba de instalar qdbus6: re-resolver para que los módulos de
+    # layout que corren después en --all ya lo encuentren
+    resolve_qdbus
+
     ok "KDE Plasma mínimo instalado, SDDM y Bluetooth habilitados"
 }
 
@@ -299,8 +325,8 @@ ZSHRC
     # Cambiar shell a zsh
     if [[ "$SHELL" != *"zsh"* ]]; then
         info "Cambiando shell a zsh..."
-        chsh -s "$(which zsh)" 2>/dev/null || \
-            warn "No se pudo cambiar el shell automáticamente. Ejecuta: chsh -s \$(which zsh)"
+        chsh -s "$(command -v zsh)" 2>/dev/null || \
+            warn "No se pudo cambiar el shell automáticamente. Ejecuta: chsh -s \$(command -v zsh)"
     fi
 
     ok "Terminal configurada"
