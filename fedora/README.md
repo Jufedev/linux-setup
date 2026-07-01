@@ -66,7 +66,7 @@ The script is safe to re-run. Each module is idempotent.
 | `--repos` | Enables RPM Fusion free + nonfree, adds Flathub, upgrades system |
 | `--hardware` | Microcode + NVIDIA open kernel modules (`akmod-nvidia-open`) for Blackwell/RTX 50; blacklists nouveau, enables KMS. No-op without an NVIDIA card. See [NVIDIA Dedicated GPU](#nvidia-dedicated-gpu-blackwell--rtx-50) |
 | `--fonts` | Installs Inter, Cascadia Code Nerd Font, Apple Color Emoji, Windows-equivalent fonts; applies KDE font config |
-| `--theme` / `--macos-look` | **The full [plasma6macos pack](../vendor/plasma6macos/ATTRIBUTION.md) (the "video" look).** Icons (MacTahoe) + cursors + GTK + Kvantum (MacSequoia) + pack fonts + plasmoids (Tahoe Launcher, Control Center,  menu, weather) + MacSequoia Plasma theme/Aurorae + KWin blur/kinetic + the exact panel layout + MacSequoia wallpaper. Both flags do the same thing. See [The macOS look (plasma6macos)](#the-macos-look-plasma6macos) |
+| `--theme` / `--macos-look` | **The full [plasma6macos pack](../shared/vendor/plasma6macos/ATTRIBUTION.md) (the "video" look).** Icons (MacTahoe) + cursors + GTK + Kvantum (MacSequoia) + pack fonts + plasmoids (Tahoe Launcher, Control Center,  menu, weather) + MacSequoia Plasma theme/Aurorae + KWin blur/kinetic + the exact panel layout + MacSequoia wallpaper. Both flags do the same thing. See [The macOS look (plasma6macos)](#the-macos-look-plasma6macos) |
 | `--desktop` | **Fallback** minimal panel layout (top bar + bottom dock) via Plasma Scripting API; clock shows 24h + date. `--all` uses `--macos-look` instead |
 | `--terminal` | Installs MacOS Konsole profile and color scheme, sets as default |
 | `--launcher` | KRunner is native to KDE — no-op (Meta or Alt+Space) |
@@ -192,7 +192,8 @@ WhiteSur was removed: the pack's theme is **MacSequoia** + **MacTahoe** icons
 (vinceliuice) plus custom plasmoids that WhiteSur doesn't ship, and mixing both
 only caused conflicts (e.g. broken icons). `--theme`, `--macos-look` and `--all`
 all install the **full pack**, vendored in
-[`fedora/vendor/plasma6macos/`](../vendor/plasma6macos/ATTRIBUTION.md):
+[`shared/vendor/plasma6macos/`](../shared/vendor/plasma6macos/ATTRIBUTION.md)
+(the module logic lives in `shared/plasma6macos.sh`, shared with the Arch setup):
 
 | Piece | What it adds |
 |---|---|
@@ -221,7 +222,7 @@ forces `widgetStyle=kvantum` (MacSequoia) right after applying the look-and-feel
 | SF Pro font | Apple's SF Pro is proprietary. **Inter** is used instead — visually close for UI text. |
 | Dark mode | **Light only.** The pack's `MacSequoia-Dark` look-and-feel sets `widgetStyle=Darkly`, a Qt style the pack references but doesn't ship — switching to dark breaks widget styling. Stay on `MacSequoia-Light`; if a switch broke things, re-select the **MacSequoia-Light** global theme or re-run `--macos-look`. |
 | Login screen | `--login` styles the greeter additively (wallpaper drop-in on Fedora 44's Plasma Login Manager; full `tahoe-sddm` theme on SDDM spins). The full QML greeter theme only applies where SDDM is the manager — on Fedora 44 only the wallpaper changes. |
-| Pack versioning | plasma6macos has no upstream releases, so it's **vendored** (committed) instead of pinned to a ref. Bumping it means re-downloading the zips from the KDE Store and replacing `fedora/vendor/plasma6macos/`. |
+| Pack versioning | plasma6macos has no upstream releases, so it's **vendored** (committed) instead of pinned to a ref. Bumping it means re-downloading the zips from the KDE Store and replacing `shared/vendor/plasma6macos/`. |
 | Panel layout | `--all`/`--macos-look` drops the pack's `appletsrc` and restarts plasmashell (a backup is saved to `*.pre-macos.bak`). `--desktop` is a minimal procedural fallback (`panel-layout.js`) that rebuilds panels on each run — manual panel customizations are reset. Re-test after a major Plasma version upgrade. |
 | Global menu (GTK apps) | The `org.kde.plasma.appmenu` widget works natively for KDE/Qt apps. GTK app menus require `appmenu-gtk3-module` (install via `dnf install appmenu-gtk3-module`). |
 | Firewall (deny incoming) | `--apps` sets firewalld's default zone to `public` (deny incoming except ssh/dhcpv6/mdns), matching the Arch setup. Fedora's stock `FedoraWorkstation` zone leaves ports 1025-65535 open — that is overridden. **KDE Connect / LAN file sharing need their ports opened manually** (e.g. `sudo firewall-cmd --permanent --add-service=kdeconnect && sudo firewall-cmd --reload`). |

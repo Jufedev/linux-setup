@@ -34,11 +34,13 @@ linux-setup/
 ├── setup.sh                # Dispatcher: detecta la distro y delega
 ├── shared/                 # Idéntico en ambas distros
 │   ├── ssh-github.sh       # Llave SSH para push a GitHub (sin tokens)
+│   ├── plasma6macos.sh     # Módulo del look macOS para KDE (lo usan ambas distros)
+│   ├── vendor/plasma6macos/ # Pack plasma6macos vendorizado (zips + atribución)
+│   ├── configs/kde/        # Layout de panel + perfil de Konsole
 │   ├── starship/           # Prompt de terminal
 │   └── fontconfig/         # Fallback de emojis a color
 ├── fedora/                 # Fedora 44 + KDE Plasma 6
-│   ├── scripts/postinstall.sh
-│   └── configs/kde/        # Layout de panel + perfil de Konsole
+│   └── scripts/postinstall.sh
 └── arch/                   # Arch + GNOME
     ├── scripts/            # install.sh, postinstall.sh, refresh.sh, gdm-wallpaper
     └── configs/            # kitty, ulauncher, gnome (+ extensiones custom)
@@ -245,7 +247,7 @@ Las custom están en el repo (`arch/configs/gnome/`) y se instalan solas con `--
 
 ### Fedora — KDE Plasma
 
-KDE no usa "extensiones": el look del video se arma con el pack **plasma6macos** (vendorizado en `fedora/vendor/plasma6macos/`), que aplica:
+KDE no usa "extensiones": el look del video se arma con el pack **plasma6macos** (vendorizado en `shared/vendor/plasma6macos/`), que aplica:
 
 - **Barra superior** con menú  (kMenu), Global Menu, Control Center estilo iOS, clima y reloj
 - **Dock inferior flotante** con **botón de apps (Tahoe Launcher)** + Icons-Only Task Manager
