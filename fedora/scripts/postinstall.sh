@@ -122,8 +122,10 @@ verify_nvidia_open_kmod() {
         fi
         warn "  En placas Blackwell (RTX 50) el propietario NO soporta el hardware → PANTALLA NEGRA."
         warn "  Comprobá con: rpm -q akmod-nvidia akmod-nvidia-open xorg-x11-drv-nvidia"
-        warn "  Acción: esperá a que RPM Fusion sincronice el open con el userspace y reinstalá,"
-        warn "  o excluí el propietario (dnf ... --exclude=akmod-nvidia,kmod-nvidia) asumiendo el fallo."
+        warn "  Acción: quitá el propietario (sudo dnf remove akmod-nvidia kmod-nvidia) e instalá"
+        warn "  el par coherente del repo release:"
+        warn "    sudo dnf install akmod-nvidia-open xorg-x11-drv-nvidia-cuda \\"
+        warn "        --disablerepo=rpmfusion-nonfree-updates --exclude=akmod-nvidia,kmod-nvidia"
         FAILED_PKGS+=("nvidia-proprietary-kmod-present")
     elif [[ "$has_open" == "true" ]]; then
         ok "Solo el módulo NVIDIA ABIERTO instalado — correcto para Blackwell/RTX 50"
@@ -497,8 +499,23 @@ configure_hardware() {
     fi
 
     # Driver abierto + soporte CUDA/VAAPI. akmod construye el módulo contra cada
-    # kernel instalado vía akmods + kernel-devel. NO usar akmod-nvidia (cerrado).
-    dnf_install akmod-nvidia-open xorg-x11-drv-nvidia-cuda
+    # kernel instalado vía akmods + kernel-devel. El --exclude hornea la política
+    # Blackwell: el kmod propietario (akmod/kmod-nvidia) no debe instalarse NUNCA.
+    # Si RPM Fusion tiene el open desincronizado del userspace, dnf falla acá
+    # RUIDOSAMENTE en vez de arrastrar el propietario (pantalla negra silenciosa).
+    # No se usa dnf_install a propósito: su reintento paquete-por-paquete perdería
+    # el --exclude y este install debe ser todo-o-nada.
+    info "Installing (dnf): akmod-nvidia-open xorg-x11-drv-nvidia-cuda (sin kmod propietario)"
+    if ! sudo dnf install -y --exclude=akmod-nvidia,kmod-nvidia \
+            akmod-nvidia-open xorg-x11-drv-nvidia-cuda 2>&1 | tee -a "$LOG_FILE"; then
+        warn "Instalación del driver falló — probable desync open/userspace en RPM Fusion."
+        warn "Salida rápida (par coherente del repo release, sin fijar versiones):"
+        warn "  sudo dnf install akmod-nvidia-open xorg-x11-drv-nvidia-cuda \\"
+        warn "      --disablerepo=rpmfusion-nonfree-updates --exclude=akmod-nvidia,kmod-nvidia"
+        warn "Un 'dnf upgrade' posterior te sube al par sincronizado cuando RPM Fusion lo arregle."
+        warn "O esperá la resincronización y re-corré: bash postinstall.sh --hardware"
+        FAILED_PKGS+=("akmod-nvidia-open")
+    fi
 
     # Safeguard: confirmar que dnf no arrastró el módulo propietario en su lugar.
     verify_nvidia_open_kmod

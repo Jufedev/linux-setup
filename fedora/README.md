@@ -124,18 +124,27 @@ It installs `akmod-nvidia-open` + CUDA/VAAPI support, blacklists nouveau, sets
 verify with `nvidia-smi`. Without an NVIDIA card the module is a no-op (Mesa
 already covers AMD/Intel on Fedora).
 
-> **Open-module safeguard.** When RPM Fusion's `akmod-nvidia-open` lags behind the
-> NVIDIA userspace (`xorg-x11-drv-nvidia`), `dnf` installs the open module **but
-> also pulls the proprietary `akmod-nvidia`** to satisfy the userspace's
-> `nvidia-kmod=<version>` dependency — and the proprietary one is the version that
-> matches userspace, so it's the one that would load. On Blackwell (RTX 50) that
-> means a **silent black screen**. After the install `--hardware` checks the
-> installed kmod flavor and, if the proprietary module is present, prints a loud
-> warning and flags it in the summary (`nvidia-proprietary-kmod-present`). Recheck
-> with `rpm -q akmod-nvidia akmod-nvidia-open xorg-x11-drv-nvidia`; wait for RPM
-> Fusion to resync the open module and reinstall, or exclude the proprietary one
-> (`--exclude=akmod-nvidia,kmod-nvidia`, accepting that the install then fails until
-> the open module catches up).
+> **Open-module policy + safeguard.** The driver install always runs with
+> `--exclude=akmod-nvidia,kmod-nvidia`: on Blackwell the proprietary kmod must
+> never be installed. This matters when RPM Fusion's `akmod-nvidia-open` lags
+> behind the NVIDIA userspace (`xorg-x11-drv-nvidia`) — without the exclude,
+> `dnf` would pull the proprietary module to satisfy the userspace's
+> `nvidia-kmod=<version>` dependency, and that module is the one that would load:
+> a **silent black screen**. With the exclude, the install **fails loudly**
+> instead. If that happens, either wait for RPM Fusion to resync and re-run
+> `--hardware`, or install the coherent pair from the release repo (a one-off
+> command, no version pins):
+>
+> ```bash
+> sudo dnf install akmod-nvidia-open xorg-x11-drv-nvidia-cuda \
+>     --disablerepo=rpmfusion-nonfree-updates --exclude=akmod-nvidia,kmod-nvidia
+> ```
+>
+> A later `dnf upgrade` moves to the resynced pair automatically. As a second
+> line of defense, `--hardware` also checks the installed kmod flavor afterwards
+> and flags `nvidia-proprietary-kmod-present` in the summary if the proprietary
+> module is present (e.g. from a preexisting install). Recheck with
+> `rpm -q akmod-nvidia akmod-nvidia-open xorg-x11-drv-nvidia`.
 
 > **Test without the card.** To exercise the NVIDIA path in a VM that has no
 > NVIDIA GPU, force the branch: `FORCE_GPU=nvidia bash fedora/scripts/postinstall.sh --hardware`.
