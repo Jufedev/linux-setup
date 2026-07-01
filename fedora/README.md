@@ -53,12 +53,12 @@ The script is safe to re-run. Each module is idempotent.
 ## Module Reference
 
 > **Unified flags.** The flag set is **identical to the Arch setup** and each flag
-> does the same thing on both. `--launcher` is a no-op on Fedora (KRunner is native),
-> kept for parity. `--macos-look` is Fedora-only (the plasma6macos pack is KDE-specific).
-> Arch's `--gnome` and `--cachyos`
-> have no Fedora equivalent (KDE ships with the spin; CachyOS is Arch-only).
-> `--debloat` is Fedora-only (Arch is minimal by construction, so it has nothing
-> to strip).
+> does the same thing on both — including `--theme`/`--macos-look`, which apply the
+> same shared plasma6macos module (`shared/plasma6macos.sh`) on both distros.
+> `--launcher` is a no-op everywhere (KRunner is native), kept for parity.
+> Arch's `--kde` and `--cachyos` have no Fedora equivalent (KDE ships with the
+> spin; CachyOS is Arch-only). `--debloat` is Fedora-only (Arch is minimal by
+> construction, so it has nothing to strip).
 
 | Flag | What it does |
 |---|---|

@@ -1,6 +1,6 @@
 # linux-setup — Escritorio Linux con look macOS
 
-Setup automatizado para dejar **Fedora 44 + KDE** o **Arch + GNOME** con estética macOS completa: tema macOS (pack **plasma6macos/MacSequoia** en KDE, **WhiteSur** en GNOME), fuentes Cascadia Code + emojis Apple, terminal, prompt y apps equivalentes. Un solo comando por distro.
+Setup automatizado para dejar **Fedora 44 + KDE** o **Arch + KDE** con estética macOS completa: el pack **plasma6macos** (MacSequoia + iconos MacTahoe) sobre KDE Plasma 6, fuentes Cascadia Code + emojis Apple, terminal, prompt y apps equivalentes. El look es **el mismo en las dos distros** — el módulo que lo aplica vive en `shared/`. Un solo comando por distro.
 
 ```bash
 git clone https://github.com/Jufedev/linux-setup.git ~/linux-setup
@@ -12,17 +12,17 @@ bash setup.sh --all      # detecta tu distro y corre el setup que corresponde
 
 ## Stack
 
-`setup.sh` detecta la distro y delega. Las dos rutas buscan el **mismo resultado visual** con las herramientas nativas de cada SO:
+`setup.sh` detecta la distro y delega. Las dos rutas llegan al **mismo resultado visual** — mismo escritorio, mismo pack, mismo módulo compartido:
 
 | Componente | Arch | Fedora |
 |---|---|---|
 | Paquetes | pacman + AUR (yay) | dnf + RPM Fusion + Flatpak |
-| Escritorio | GNOME | KDE Plasma 6 |
-| Login manager | GDM | Plasma Login Manager (stock) |
-| Terminal | Kitty | Konsole |
-| Lanzador (Spotlight) | Ulauncher | KRunner (nativo) |
-| Dock | Dash-to-Dock | Panel flotante nativo |
-| Tema macOS | WhiteSur (GTK + Shell) | plasma6macos: MacSequoia + iconos MacTahoe + Kvantum + Aurorae |
+| Escritorio | KDE Plasma 6 | KDE Plasma 6 |
+| Login manager | SDDM (tema `tahoe-sddm`) | Plasma Login Manager (stock) |
+| Terminal | Konsole | Konsole |
+| Lanzador (Spotlight) | KRunner (nativo) | KRunner (nativo) |
+| Dock | Panel flotante nativo | Panel flotante nativo |
+| Tema macOS | plasma6macos: MacSequoia + iconos MacTahoe + Kvantum + Aurorae | *(igual — módulo compartido)* |
 | Fuentes | Cascadia Code + Apple emoji + Inter | *(igual)* |
 | Kernel / performance | CachyOS (BORE) *opcional* | stock |
 | Instalación base | scripteada (`install.sh`) | manual (instalador gráfico) |
@@ -41,9 +41,8 @@ linux-setup/
 │   └── fontconfig/         # Fallback de emojis a color
 ├── fedora/                 # Fedora 44 + KDE Plasma 6
 │   └── scripts/postinstall.sh
-└── arch/                   # Arch + GNOME
-    ├── scripts/            # install.sh, postinstall.sh, refresh.sh, gdm-wallpaper
-    └── configs/            # kitty, ulauncher, gnome (+ extensiones custom)
+└── arch/                   # Arch + KDE Plasma 6
+    └── scripts/            # install.sh, postinstall.sh, refresh.sh
 ```
 
 ---
@@ -55,7 +54,7 @@ linux-setup/
 1. **Instalá Fedora 44 KDE** (USB con Rufus + instalador gráfico). Dejá Btrfs (default). *(Funciona también en 42/43.)*
 2. **Tomá un snapshot** de seguridad antes de tocar nada:
    ```bash
-   sudo btrfs subvolume snapshot / /.snapshots/pre-whitesur-$(date +%F)
+   sudo btrfs subvolume snapshot / /.snapshots/pre-macos-$(date +%F)
    ```
 3. **Cloná y corré el setup:** *(la KDE Spin no trae `git` de fábrica)*
    ```bash
@@ -100,33 +99,33 @@ cd ~/linux-setup
 bash arch/scripts/postinstall.sh --all
 ```
 
-Instala en orden: CachyOS → repos → hardware → GNOME → tema → fuentes → terminal → launcher → apps → wallpapers → escritorio → teclado. **Resiliente:** si un paquete falla, lo reintenta solo, lo registra y sigue; al final te muestra un resumen. Log en `~/.local/state/arch-macos-setup.log`.
+Instala en orden: CachyOS → repos → hardware → KDE → fuentes → terminal → launcher → apps → look macOS → login → teclado. **Resiliente:** si un paquete falla, lo reintenta solo, lo registra y sigue; al final te muestra un resumen. Log en `~/.local/state/arch-macos-setup.log`.
 
 Sin argumentos abre un **menú interactivo**, o usá flags directos:
 
-> **Flags unificados.** Los flags son **idénticos en Arch y Fedora** y hacen lo mismo en ambas, salvo `--gnome` y `--cachyos` (exclusivos de Arch — Fedora ya trae KDE y no usa CachyOS) y `--debloat` (exclusivo de Fedora — Arch ya es mínimo por construcción).
+> **Flags unificados.** Los flags son **idénticos en Arch y Fedora** y hacen lo mismo en ambas, salvo `--kde` y `--cachyos` (exclusivos de Arch — Fedora ya trae KDE en la spin y no usa CachyOS) y `--debloat` (exclusivo de Fedora — Arch ya es mínimo por construcción).
 
 | Flag | Qué instala |
 |------|-------------|
 | `--all` | Todo en orden (recomendado para instalación limpia) |
 | `--repos` | Habilita `multilib` (paquetes de 32 bits, ej. `lib32-nvidia-utils`) |
 | `--hardware` | Microcode + drivers de GPU; NVIDIA con módulos abiertos `nvidia-open-dkms` (Blackwell/RTX 50) |
-| `--gnome` | GNOME mínimo + GDM *(Arch-only)* |
-| `--theme` | Stack visual WhiteSur (GTK + iconos + cursores) |
-| `--fonts` | Cascadia Code + Apple emoji + Inter + fuentes Windows libres |
-| `--desktop` | Layout estilo macOS: extensiones GNOME + ajustes dconf |
-| `--terminal` | Kitty + Zsh + Starship |
-| `--launcher` | Ulauncher + tema macOS |
-| `--apps` | Flameshot, Chrome, Edge, Podman + Distrobox, firewall *(deny incoming)* |
-| `--wallpapers` | Wallpapers dinámicos por hora *(ya en `--all`)* |
-| `--keyboard` | Layout `us altgr-intl` (system-wide) |
-| `--login` | Login GDM estilo macOS *(ver Extras)* |
+| `--kde` | KDE Plasma 6 mínimo + SDDM *(Arch-only)* |
+| `--theme` / `--macos-look` | El pack **plasma6macos** completo: MacSequoia + iconos MacTahoe + Kvantum + plasmoides + layout + wallpaper |
+| `--fonts` | Cascadia Code + Apple emoji + Inter + fuentes Windows libres; config de fuentes KDE |
+| `--desktop` | **Fallback**: layout mínimo de paneles (barra + dock) vía Plasma Scripting API |
+| `--terminal` | Konsole (perfil MacOS) + Zsh + Starship |
+| `--launcher` | No-op: KRunner es nativo de KDE (Meta o Alt+Space) |
+| `--apps` | Flameshot, GNOME Calendar *(calendario del dock)*, Chrome, Edge, Podman + Distrobox, firewall *(deny incoming)* |
+| `--wallpapers` | Wallpaper MacSequoia del pack *(ya en `--all`)* |
+| `--keyboard` | Layout `us altgr-intl` (sesión KDE + system-wide) |
+| `--login` | Login SDDM estilo macOS: tema `tahoe-sddm` del pack *(aditivo y reversible)* |
 | `--cachyos` | Repos + kernel optimizados *(Arch-only, ya en `--all`)* |
 | `--debloat` | Quita apps preinstaladas de la KDE Spin (juegos, PIM, Firefox, LibreOffice…) *(Fedora-only, opt-in, NO va en `--all`)* |
 
 ### Extras de Arch (opcionales)
 
-- **Login macOS (GDM)** — `bash arch/scripts/postinstall.sh --login`. Aplica WhiteSur al login con wallpaper por hora. Va aparte porque requiere sudo + reiniciar GDM.
+- **Login macOS (SDDM)** — `bash arch/scripts/postinstall.sh --login` (ya incluido en `--all`). Instala el tema `tahoe-sddm` del pack y lo activa con un drop-in en `/etc/sddm.conf.d/95-macos-login.conf`. Para revertir: borrá ese archivo.
 - **Performance (CachyOS)** — ya viene en `--all`: agrega repos compilados para tu CPU (uplift real ~5–20%) + kernel BORE/EEVDF. Reiniciá y elegí `linux-cachyos` en GRUB.
 - **Monitor sin EDID** (resolución cae a `640x480`) — algunos monitores viejos o por adaptador no entregan EDID. Forzá el modo por parámetro de kernel en GRUB (`GRUB_CMDLINE_LINUX_DEFAULT="… video=DP-1:1440x900@60"`, luego `sudo grub-mkconfig -o /boot/grub/grub.cfg`). No va en los scripts porque el conector y la resolución cambian por máquina.
 
@@ -227,27 +226,9 @@ Genera una llave `ed25519` con **passphrase aleatoria**, agrega un bloque `Host 
 
 ---
 
-## Extensiones y personalizaciones (Arch + Fedora)
+## El look macOS (Arch + Fedora)
 
-### Arch — extensiones GNOME
-
-| Extensión | Función |
-|-----------|---------|
-| Dash to Dock | Dock estilo macOS siempre visible |
-| Blur My Shell | Blur en dock y panel |
-| AppIndicator | Iconos en bandeja del sistema |
-| Vitals | Monitor de recursos en la barra (≈ iStatMenus) |
-| Clipboard Indicator | Historial del portapapeles |
-| HideTopBar · Just Perfection · User Themes | Ajustes finos de la interfaz |
-| **calendar-tweaks** *(custom)* | Colapsa el message list del calendario |
-| **dock-magnify** *(custom)* | Fish-eye en el dock al pasar el cursor |
-| **panel-tweaks** *(custom)* | Reorganiza el panel superior (ícono Arch, Vitals+clipboard, fecha) |
-
-Las custom están en el repo (`arch/configs/gnome/`) y se instalan solas con `--desktop`.
-
-### Fedora — KDE Plasma
-
-KDE no usa "extensiones": el look del video se arma con el pack **plasma6macos** (vendorizado en `shared/vendor/plasma6macos/`), que aplica:
+KDE no usa "extensiones" al estilo GNOME: el look del video se arma con el pack **plasma6macos** (vendorizado en `shared/vendor/plasma6macos/`, aplicado por el módulo compartido `shared/plasma6macos.sh` — **el mismo en las dos distros**), que aplica:
 
 - **Barra superior** con menú  (kMenu), Global Menu, Control Center estilo iOS, clima y reloj
 - **Dock inferior flotante** con **botón de apps (Tahoe Launcher)** + Icons-Only Task Manager
@@ -262,13 +243,13 @@ El módulo `--keyboard` configura el layout **English intl (AltGr dead keys)** t
 
 ## Qué se instala (y qué NO)
 
-### Arch — GNOME mínimo
+### Arch — KDE Plasma 6 mínimo
 
-En vez del metapaquete `gnome` (~40 apps), solo lo esencial.
+En vez del metapaquete `plasma` (~50 componentes), solo lo esencial.
 
-**Sí:** gnome-shell, gdm, control-center, tweaks, nautilus, file-roller, evince, eog, calculator, calendar, disk-utility, system-monitor, gvfs, bluez *(servicio `bluetooth` activado)*.
+**Sí:** plasma-desktop, plasma-workspace, sddm, systemsettings, kscreen, plasma-nm, plasma-pa, powerdevil, xdg-desktop-portal-kde, kdeplasma-addons, konsole, dolphin, ark, okular, gwenview, kcalc, partitionmanager, plasma-systemmonitor, kwallet-pam, kio-extras, bluedevil + bluez *(servicio `bluetooth` activado)*.
 
-**NO:** gnome-terminal (usamos Kitty), Maps, Weather, Music, Photos, Contacts, Cheese, Totem, Epiphany, Boxes, Characters, Logs, Tour, Console, ni juegos.
+**NO:** el metapaquete `plasma` completo, la suite PIM (Kontact/KMail/KOrganizer), Discover, Spectacle (usamos Flameshot), juegos KDE, ni apps redundantes con el stack del setup.
 
 ### Fedora — KDE Spin
 
@@ -278,21 +259,24 @@ En vez del metapaquete `gnome` (~40 apps), solo lo esencial.
 
 ---
 
-## Equivalencias macOS → Arch → Fedora
+## Equivalencias macOS → Linux (KDE)
 
-| macOS | Arch (GNOME) | Fedora (KDE) |
-|---|---|---|
-| Finder | Nautilus | Dolphin |
-| iTerm2 | Kitty | Konsole |
-| Spotlight | Ulauncher | KRunner *(nativo)* |
-| Screenshot | Flameshot | Flameshot |
-| Preview | Evince + Eye of GNOME | Okular + Gwenview |
-| Archive Utility | File Roller | Ark |
-| Disk Utility | GNOME Disks | KDE Partition Manager |
-| Activity Monitor | System Monitor | System Monitor (Plasma) |
-| Calculator | GNOME Calculator | KCalc |
-| Calendar | GNOME Calendar | KOrganizer |
-| iStatMenus | Vitals *(extensión)* | System Monitor widgets |
-| Safari / Chrome | Google Chrome *(AUR)* | Chrome *(Flatpak)* |
-| Edge | microsoft-edge-stable-bin *(AUR)* | Edge *(Flatpak)* |
-| Docker Desktop | Podman + Distrobox | Podman + Distrobox |
+Ambas distros usan KDE Plasma 6, así que las equivalencias son las mismas; solo
+cambia de dónde vienen los navegadores (AUR en Arch, Flatpak en Fedora).
+
+| macOS | Arch + Fedora (KDE) |
+|---|---|
+| Finder | Dolphin |
+| iTerm2 | Konsole |
+| Spotlight | KRunner *(nativo)* |
+| Screenshot | Flameshot |
+| Preview | Okular + Gwenview |
+| Archive Utility | Ark |
+| Disk Utility | KDE Partition Manager |
+| Activity Monitor | System Monitor (Plasma) |
+| Calculator | KCalc |
+| Calendar | GNOME Calendar *(icono del dock con la fecha del día)* |
+| iStatMenus | Widgets de System Monitor |
+| Safari / Chrome | Google Chrome *(AUR / Flatpak)* |
+| Edge | Microsoft Edge *(AUR / Flatpak)* |
+| Docker Desktop | Podman + Distrobox |
