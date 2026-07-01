@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # ============================================================================
-# Arch Linux — Setup estilo macOS (GNOME)
+# Arch Linux — Setup estilo macOS (KDE Plasma 6)
 # Ejecutar como usuario normal después del primer boot
-# Uso: bash postinstall.sh [--all | --repos | --hardware | --gnome | --theme | --fonts |
-#          --desktop | --terminal | --launcher | --apps | --wallpapers | --keyboard | --login | --cachyos]
+# Uso: bash postinstall.sh [--all | --repos | --hardware | --kde | --theme |
+#          --macos-look | --fonts | --desktop | --terminal | --launcher |
+#          --apps | --wallpapers | --keyboard | --login | --cachyos]
 # Sin argumentos = menú interactivo
 # ============================================================================
 set -euo pipefail
@@ -13,12 +14,12 @@ R='\033[0;31m'; G='\033[0;32m'; Y='\033[1;33m'; B='\033[0;34m'; C='\033[0;36m'; 
 info()  { echo -e "${B}[INFO]${NC}  $1"; }
 ok()    { echo -e "${G}[OK]${NC}    $1"; }
 warn()  { echo -e "${Y}[WARN]${NC}  $1"; }
-fail()  { echo -e "${R}[FAIL]${NC}  $1"; exit 1; }
 step()  { echo -e "\n${C}━━━ $1 ━━━${NC}\n"; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIGS_DIR="${SCRIPT_DIR}/../configs"
 SHARED_DIR="${SCRIPT_DIR}/../../shared"
+KDE_CONFIGS_DIR="${SHARED_DIR}/configs/kde"
+VENDOR_DIR="${SHARED_DIR}/vendor/plasma6macos"
 
 # Log persistente (sobrevive reinicios — /tmp se borra al rebootear)
 LOG_DIR="${XDG_STATE_HOME:-$HOME/.local/state}"
@@ -29,17 +30,33 @@ LOG_FILE="${LOG_DIR}/arch-macos-setup.log"
 FAILED_PKGS=()
 FAILED_MODULES=()
 
-# ── Pinned upstream refs (WhiteSur) ──────────────────────────────────────────
-# Bump intencionalmente; clonar HEAD no es reproducible. Ver dependency audit.
-readonly WHITESUR_GTK_REF="2025-07-24"
-readonly WHITESUR_WALLPAPERS_REF="2023-06-11"
-
-[[ ! -d "$CONFIGS_DIR" ]] && fail "Directorio de configs no encontrado: $CONFIGS_DIR"
+[[ ! -d "$KDE_CONFIGS_DIR" ]] && { warn "Directorio de configs no encontrado: $KDE_CONFIGS_DIR — continuando de todos modos"; }
 
 # ── Sincronizar base de datos de pacman ───────────────────────────────────
 info "Sincronizando base de datos de pacman..."
 sudo pacman -Sy --noconfirm &>/dev/null
 ok "Base de datos sincronizada"
+
+# ── Resolver qdbus6 ──────────────────────────────────────────────────────────
+# En Arch el binario Qt6 es qdbus6 (paquete qt6-tools, lo instala --kde); se
+# contemplan los otros nombres por paridad con Fedora. Exportamos $QDBUS para
+# que todos los módulos lo usen sin repetir esta lógica.
+QDBUS=""
+for _qd in qdbus6 qdbus-qt6 qdbus; do
+    if command -v "$_qd" &>/dev/null; then
+        QDBUS="$_qd"
+        break
+    fi
+done
+export QDBUS
+
+# ── Módulo compartido plasma6macos ───────────────────────────────────────────
+# Las funciones del look macOS (install_macos_*, apply_macos_layout, install_theme,
+# etc.) son distro-agnósticas y viven en shared/plasma6macos.sh — las comparte el
+# setup de Fedora. El contrato del módulo está documentado en su header.
+MACOS_PKG_INSTALL="pac_install"
+# shellcheck source=../../shared/plasma6macos.sh
+source "${SHARED_DIR}/plasma6macos.sh"
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 # Estrategia: intentar el batch (rápido, resuelve dependencias juntas). Si falla,
@@ -106,8 +123,8 @@ print_summary() {
     echo ""
     echo -e "${G}Pasos finales:${NC}"
     echo "  • Reiniciá para bootear el kernel CachyOS (elegilo en GRUB si no es el default)"
-    echo "  • Cerrá y reabrí sesión para ver el tema y las extensiones"
-    echo "  • Parcheá el login estilo macOS con: bash postinstall.sh --login"
+    echo "  • Cerrá y reabrí sesión para ver el tema, los paneles y las fuentes"
+    echo "  • Si los paneles macOS quedaron raros, re-corré: bash postinstall.sh --macos-look"
     echo ""
 
     # Código de salida no-cero si hubo fallos (útil para CI / scripts llamadores)
@@ -135,197 +152,115 @@ ensure_yay() {
 # MÓDULOS
 # ============================================================================
 
-install_gnome() {
-    step "GNOME Mínimo"
+# KDE Plasma 6 mínimo. Misma filosofía que el GNOME mínimo anterior: en vez del
+# metapaquete plasma (~50 componentes), solo lo esencial para un desktop usable
+# + los equivalentes KDE de las utilidades que ya instalábamos.
+install_kde() {
+    step "KDE Plasma 6 mínimo"
 
-    # Shell y display manager
+    # Core de Plasma + display manager. kdeplasma-addons trae widgets que usa el
+    # layout del pack plasma6macos (ej. weather). qt6-tools trae qdbus6, que los
+    # módulos de paneles necesitan para la Plasma Scripting API.
     pac_install \
-        gnome-shell \
-        gdm \
-        gnome-control-center \
-        gnome-tweaks \
-        gnome-shell-extensions \
-        gnome-keyring \
-        gnome-menus
+        plasma-desktop \
+        plasma-workspace \
+        sddm \
+        systemsettings \
+        kscreen \
+        plasma-nm \
+        plasma-pa \
+        powerdevil \
+        xdg-desktop-portal-kde \
+        kdeplasma-addons \
+        qt6-tools
 
-    # File manager
-    pac_install nautilus
+    # File manager + terminal
+    pac_install dolphin konsole
 
-    # Utilidades mínimas
+    # Utilidades mínimas (equivalentes KDE del set GNOME que reemplazó este módulo)
     pac_install \
         xdg-user-dirs \
-        xdg-desktop-portal-gnome \
-        file-roller \
-        evince \
-        eog \
-        gnome-calculator \
-        gnome-calendar \
-        gnome-disk-utility \
-        gnome-system-monitor \
-        gvfs \
-        gvfs-mtp
+        ark \
+        okular \
+        gwenview \
+        kcalc \
+        partitionmanager \
+        plasma-systemmonitor \
+        kwallet-pam \
+        kio-extras
 
-    # Bluetooth (demonio + bluetoothctl)
-    pac_install bluez bluez-utils
+    # Bluetooth (demonio + applet de Plasma)
+    pac_install bluedevil bluez bluez-utils
 
     # Crear carpetas estándar (Documents, Downloads, Pictures, etc.)
     xdg-user-dirs-update
 
-    sudo systemctl enable gdm
+    sudo systemctl enable sddm
     sudo systemctl enable bluetooth
-    ok "GNOME mínimo instalado, GDM y Bluetooth habilitados"
-
-    # ── Remover bloat de dependencias ──
-    info "Removiendo apps innecesarias (dependencias no deseadas)..."
-
-    if pacman -Q gvfs-dnssd &>/dev/null; then
-        sudo pacman -Rns --noconfirm gvfs-dnssd
-    fi
-
-    if pacman -Q avahi &>/dev/null; then
-        sudo pacman -Rns --noconfirm avahi 2>/dev/null || {
-            warn "avahi es dependencia requerida — ocultando apps del menú"
-            mkdir -p "$HOME/.local/share/applications"
-            for app in bssh bvnc avahi-discover; do
-                printf '[Desktop Entry]\nNoDisplay=true\n' > "$HOME/.local/share/applications/${app}.desktop"
-            done
-        }
-    fi
-
-    if pacman -Q v4l-utils &>/dev/null; then
-        sudo pacman -Rns --noconfirm v4l-utils 2>/dev/null || {
-            warn "v4l-utils es dependencia requerida — ocultando apps del menú"
-            mkdir -p "$HOME/.local/share/applications"
-            for app in qv4l2 qvidcap; do
-                printf '[Desktop Entry]\nNoDisplay=true\n' > "$HOME/.local/share/applications/${app}.desktop"
-            done
-        }
-    fi
-
-    ok "Bloat removido"
-
-    # ── Paquetes opcionales (descomenta lo que necesites) ──
-    # pac_install gnome-font-viewer      # Visor de fuentes
-    # pac_install gnome-logs             # Visor de logs del sistema
-    # pac_install gnome-characters       # Mapa de caracteres / emojis
-    # pac_install baobab                 # Analizador de uso de disco
-    # pac_install gnome-clocks           # Reloj mundial / alarmas / timer
-    # pac_install gnome-weather          # Clima
-    # pac_install gnome-text-editor      # Editor de texto simple
-    # pac_install seahorse               # Gestor de contraseñas/llaves
-    # pac_install simple-scan            # Escaneo de documentos
+    ok "KDE Plasma mínimo instalado, SDDM y Bluetooth habilitados"
 }
 
-install_theme() {
-    step "Tema WhiteSur (macOS)"
+# ── Panel layout (FALLBACK procedural) ─────────────────────────────
+# Layout macOS básico (barra + dock) vía Plasma Scripting API. Es el FALLBACK:
+# --all usa install_macos_look (layout fiel del video). Esto queda como --desktop
+# para quien quiera el layout mínimo sin el pack. El JS borra los paneles y los
+# reconstruye → idempotente pero DESTRUCTIVO para customizaciones manuales.
+configure_desktop() {
+    step "Panel layout — estilo macOS (barra superior + dock inferior)"
 
-    # Remover versiones -git si existen (evita conflictos)
-    local git_pkgs=""
-    for pkg in whitesur-gtk-theme-git whitesur-icon-theme-git whitesur-cursor-theme-git; do
-        pacman -Q "$pkg" &>/dev/null && git_pkgs+="$pkg "
-    done
-    if [[ -n "$git_pkgs" ]]; then
-        warn "Removiendo versiones -git conflictivas: $git_pkgs"
-        sudo pacman -Rns --noconfirm $git_pkgs
+    local panel_js="${KDE_CONFIGS_DIR}/panel-layout.js"
+
+    if [[ ! -f "$panel_js" ]]; then
+        warn "panel-layout.js no encontrado en $panel_js — salteando layout de paneles"
+        return 0
     fi
 
-    pac_install sassc
-    aur_install gtk-engine-murrine whitesur-gtk-theme whitesur-icon-theme whitesur-cursor-theme
+    if [[ -z "$QDBUS" ]]; then
+        warn "QDBUS no encontrado — salteando layout (corré --desktop después de loguearte en Plasma)"
+        return 0
+    fi
 
-    ok "Tema WhiteSur instalado"
+    info "Aplicando layout de paneles vía Plasma Scripting API..."
+    "$QDBUS" org.kde.plasmashell /PlasmaShell \
+        org.kde.PlasmaShell.evaluateScript \
+        "$(cat "$panel_js")" 2>&1 | tee -a "$LOG_FILE" \
+        || warn "evaluateScript devolvió non-zero (normal si Plasma no está corriendo)"
 
-    info "Aplicando tema WhiteSur Dark a apps libadwaita (GTK4)..."
-    local whitesur_tmp
-    whitesur_tmp=$(mktemp -d)
-    git clone --depth=1 --branch "$WHITESUR_GTK_REF" https://github.com/vinceliuice/WhiteSur-gtk-theme.git "$whitesur_tmp"
-    (cd "$whitesur_tmp" && ./install.sh -l -c Dark)
-    rm -rf "$whitesur_tmp"
-    ok "Override GTK4/libadwaita Dark aplicado (botones macOS en todas las ventanas)"
-
-    info "Para parchear GDM: corré --login"
+    ok "Layout de paneles aplicado (barra superior + dock de iconos)"
 }
 
-install_extensions() {
-    step "Extensiones GNOME"
-
-    aur_install \
-        gnome-shell-extension-dash-to-dock \
-        gnome-shell-extension-blur-my-shell \
-        gnome-shell-extension-user-themes \
-        gnome-shell-extension-appindicator \
-        gnome-shell-extension-vitals \
-        gnome-shell-extension-just-perfection-desktop \
-        gnome-shell-extension-clipboard-indicator \
-        gnome-shell-extension-hidetopbar-git
-
-    ok "Extensiones instaladas"
-
-    # Extensión custom: dock magnification (fish-eye macOS)
-    info "Instalando extensión dock-magnify..."
-    local ext_dir="$HOME/.local/share/gnome-shell/extensions/dock-magnify@archlinux-setup"
-    mkdir -p "$ext_dir"
-    cp "${CONFIGS_DIR}/gnome/dock-magnify/metadata.json" "$ext_dir/"
-    cp "${CONFIGS_DIR}/gnome/dock-magnify/extension.js" "$ext_dir/"
-    cp "${CONFIGS_DIR}/gnome/dock-magnify/stylesheet.css" "$ext_dir/"
-    ok "Extensión dock-magnify instalada"
-
-    # Extensión custom: ocultar notificaciones del calendario
-    info "Instalando extensión calendar-tweaks..."
-    ext_dir="$HOME/.local/share/gnome-shell/extensions/calendar-tweaks@archlinux-setup"
-    mkdir -p "$ext_dir"
-    cp "${CONFIGS_DIR}/gnome/calendar-tweaks/metadata.json"  "$ext_dir/"
-    cp "${CONFIGS_DIR}/gnome/calendar-tweaks/extension.js"   "$ext_dir/"
-    cp "${CONFIGS_DIR}/gnome/calendar-tweaks/stylesheet.css" "$ext_dir/"
-    ok "Extensión calendar-tweaks instalada"
-
-    # Extensión custom: reordenar panel (quick settings a la izquierda, Arch icon, fecha a la derecha)
-    info "Instalando extensión panel-tweaks..."
-    ext_dir="$HOME/.local/share/gnome-shell/extensions/panel-tweaks@archlinux-setup"
-    mkdir -p "$ext_dir/icons"
-    cp "${CONFIGS_DIR}/gnome/panel-tweaks/metadata.json"  "$ext_dir/"
-    cp "${CONFIGS_DIR}/gnome/panel-tweaks/extension.js"   "$ext_dir/"
-    cp "${CONFIGS_DIR}/gnome/panel-tweaks/stylesheet.css"  "$ext_dir/"
-    cp "${CONFIGS_DIR}/gnome/panel-tweaks/icons/arch-symbolic.svg" "$ext_dir/icons/"
-    ok "Extensión panel-tweaks instalada"
-
-    warn "Actívalas en GNOME Extensions después de reiniciar la sesión"
-}
-
-install_fonts() {
-    step "Fuentes del sistema"
-
-    # Inter: UI general. Cascadia Code Nerd Font (CaskaydiaCove): terminal + glifos Nerd.
-    # Apple Color Emoji: emojis estilo macOS/iOS (build para Linux, paquete AUR).
-    aur_install ttf-inter ttf-apple-emoji
-    pac_install ttf-cascadia-code-nerd
-
-    # Equivalentes libres y métricamente compatibles de las fuentes de Windows
-    # (Arial→Liberation Sans, Times→Liberation Serif, Courier→Liberation Mono,
-    #  Calibri→Carlito, Cambria→Caladea) para que la web renderice como en Windows.
-    pac_install ttf-liberation ttf-carlito ttf-caladea
-
-    # Fallback de emojis a color: encadena Apple Color Emoji a sans/serif/mono.
-    # Sin esto fontconfig no los muestra en navegadores/apps aunque la fuente esté.
-    info "Instalando fallback de emojis (fontconfig)..."
-    mkdir -p "$HOME/.config/fontconfig/conf.d"
-    cp "${SHARED_DIR}/fontconfig/10-emoji-fallback.conf" \
-        "$HOME/.config/fontconfig/conf.d/10-emoji-fallback.conf"
-    fc-cache -f >/dev/null 2>&1 || true
-
-    ok "Fuentes instaladas"
-}
-
+# ── Terminal ──────────────────────────────────────────────────────
+# Konsole con el perfil MacOS compartido (mismo look que Fedora) + Zsh + Starship.
 install_terminal() {
-    step "Terminal (Kitty + Zsh + Starship)"
+    step "Terminal (Konsole + Zsh + Starship)"
 
-    pac_install kitty zsh starship
-    aur_install zsh-autosuggestions zsh-syntax-highlighting
+    pac_install konsole zsh starship zsh-autosuggestions zsh-syntax-highlighting
 
-    # Copiar configs
-    info "Copiando configuración de Kitty..."
-    mkdir -p "$HOME/.config/kitty"
-    cp "${CONFIGS_DIR}/kitty/kitty.conf" "$HOME/.config/kitty/kitty.conf"
-    ok "kitty.conf copiado"
+    # Perfil y esquema de color MacOS → ~/.local/share/konsole/
+    local konsole_src="${KDE_CONFIGS_DIR}/konsole"
+    local konsole_dest="${HOME}/.local/share/konsole"
+    mkdir -p "$konsole_dest"
+
+    if [[ -f "${konsole_src}/MacOS.profile" ]]; then
+        cp "${konsole_src}/MacOS.profile" "${konsole_dest}/MacOS.profile"
+        info "MacOS.profile copiado → $konsole_dest/"
+    else
+        warn "MacOS.profile no encontrado en $konsole_src — salteando perfil"
+    fi
+
+    if [[ -f "${konsole_src}/MacOS.colorscheme" ]]; then
+        cp "${konsole_src}/MacOS.colorscheme" "${konsole_dest}/MacOS.colorscheme"
+        info "MacOS.colorscheme copiado → $konsole_dest/"
+    fi
+
+    # Establecer el perfil por defecto en konsolerc
+    if command -v kwriteconfig6 &>/dev/null; then
+        kwriteconfig6 --file konsolerc --group "Desktop Entry" \
+            --key DefaultProfile MacOS.profile
+        info "Perfil por defecto de Konsole: MacOS.profile"
+    else
+        warn "kwriteconfig6 no encontrado — seleccioná el perfil MacOS a mano en Konsole"
+    fi
 
     info "Copiando configuración de Starship..."
     mkdir -p "$HOME/.config"
@@ -371,49 +306,50 @@ ZSHRC
     ok "Terminal configurada"
 }
 
+# Lanzador tipo Spotlight. KDE ya trae KRunner nativo — no hay nada que instalar.
+# El flag existe por paridad entre distros (antes en GNOME instalaba Ulauncher).
 install_launcher() {
-    step "Launcher — Ulauncher (Spotlight equivalent)"
-
-    aur_install ulauncher
-
-    # Tema custom macOS Tahoe Dark
-    local theme_dir="$HOME/.config/ulauncher/user-themes/macos-tahoe"
-    mkdir -p "$theme_dir"
-    cp "${CONFIGS_DIR}/ulauncher/macos-tahoe/manifest.json"       "$theme_dir/"
-    cp "${CONFIGS_DIR}/ulauncher/macos-tahoe/theme.css"            "$theme_dir/"
-    cp "${CONFIGS_DIR}/ulauncher/macos-tahoe/theme-gtk3.20.css"    "$theme_dir/"
-    ok "Tema macOS Tahoe Dark instalado"
-
-    # Configurar Ulauncher: tema custom, sin hotkey interno (GNOME keybinding lo maneja)
-    mkdir -p "$HOME/.config/ulauncher"
-    cat > "$HOME/.config/ulauncher/settings.json" <<'SETTINGS'
-{
-    "blacklisted-desktop-dirs": "/usr/share/locale:/usr/share/app-install:/usr/share/gnome:/usr/share/backgrounds:/usr/share/gnome-background-properties:/usr/share/nautilus",
-    "clear-previous-query": true,
-    "hotkey-show-app": null,
-    "render-on-screen": "mouse-pointer-monitor",
-    "show-indicator-icon": false,
-    "show-recent-apps": "3",
-    "terminal-command": "",
-    "theme-name": "macos-tahoe"
+    step "Launcher — KRunner (nativo)"
+    ok "KRunner ya viene con KDE Plasma — nada que instalar (Meta o Alt+Space)"
 }
-SETTINGS
-    ok "Ulauncher configurado (tema: macOS Tahoe Dark, hotkey: via GNOME Ctrl+Space)"
 
-    # Override systemd service: forzar X11 backend para transparencia en Wayland
-    local override_dir="$HOME/.config/systemd/user/ulauncher.service.d"
-    mkdir -p "$override_dir"
-    cat > "$override_dir/x11-backend.conf" <<'OVERRIDE'
-[Service]
-Environment=GDK_BACKEND=x11
-OVERRIDE
-    systemctl --user daemon-reload
+install_fonts() {
+    step "Fuentes del sistema"
 
-    # Habilitar autostart
-    systemctl --user enable ulauncher 2>/dev/null || true
-    systemctl --user restart ulauncher 2>/dev/null || true
+    # Inter: UI general (repo oficial). Cascadia Code Nerd Font (CaskaydiaCove):
+    # terminal + glifos Nerd. Apple Color Emoji: emojis estilo macOS/iOS (build
+    # para Linux, paquete AUR).
+    pac_install inter-font ttf-cascadia-code-nerd
+    aur_install ttf-apple-emoji
 
-    ok "Ulauncher instalado y listo (X11 backend para transparencia)"
+    # Equivalentes libres y métricamente compatibles de las fuentes de Windows
+    # (Arial→Liberation Sans, Times→Liberation Serif, Courier→Liberation Mono,
+    #  Calibri→Carlito, Cambria→Caladea) para que la web renderice como en Windows.
+    pac_install ttf-liberation ttf-carlito ttf-caladea
+
+    # Fallback de emojis a color: encadena Apple Color Emoji a sans/serif/mono.
+    # Sin esto fontconfig no los muestra en navegadores/apps aunque la fuente esté.
+    info "Instalando fallback de emojis (fontconfig)..."
+    mkdir -p "$HOME/.config/fontconfig/conf.d"
+    cp "${SHARED_DIR}/fontconfig/10-emoji-fallback.conf" \
+        "$HOME/.config/fontconfig/conf.d/10-emoji-fallback.conf"
+    fc-cache -f >/dev/null 2>&1 || true
+
+    # Aplicar fuentes en KDE via kwriteconfig6 (solo si está disponible)
+    if command -v kwriteconfig6 &>/dev/null; then
+        info "Configurando fuentes de KDE via kwriteconfig6..."
+        # Fuente general: Inter 10pt
+        kwriteconfig6 --file kdeglobals --group General \
+            --key font "Inter,10,-1,5,50,0,0,0,0,0"
+        # Fuente monospace: CaskaydiaCove Nerd Font 10pt (con glifos de iconos)
+        kwriteconfig6 --file kdeglobals --group General \
+            --key fixed "CaskaydiaCove Nerd Font,10,-1,5,50,0,0,0,0,0"
+        ok "Config de fuentes KDE escrita — re-login para aplicarla del todo"
+    else
+        warn "kwriteconfig6 no encontrado — corré --fonts de nuevo con KDE instalado"
+    fi
+
+    ok "Fuentes instaladas"
 }
 
 install_apps() {
@@ -448,393 +384,29 @@ install_apps() {
     ok "Apps, seguridad y entorno de desarrollo listos"
 }
 
-_install_app_grid_icon() {
-    local icon_src="${CONFIGS_DIR}/gnome/icons/view-app-grid-symbolic.svg"
-    [[ ! -f "$icon_src" ]] && return
-
-    local found=false
-    for theme_dir in /usr/share/icons/WhiteSur /usr/share/icons/WhiteSur-dark; do
-        [[ ! -d "$theme_dir" ]] && continue
-
-        while IFS= read -r existing; do
-            sudo rm -f "$existing"
-            sudo cp "$icon_src" "$existing"
-            found=true
-        done < <(find "$theme_dir" -name "view-app-grid*" \( -type f -o -type l \) 2>/dev/null)
-
-        sudo gtk-update-icon-cache -f "$theme_dir" 2>/dev/null || true
-    done
-
-    if $found; then
-        ok "Icono de app grid (9 puntos) instalado"
-    else
-        warn "Tema de iconos WhiteSur no encontrado en /usr/share/icons/"
-    fi
-}
-
-_overview_patch_css() {
-    local theme_css=""
-    for dir in /usr/share/themes/WhiteSur-Dark "$HOME/.themes/WhiteSur-Dark" "$HOME/.local/share/themes/WhiteSur-Dark"; do
-        if [[ -f "$dir/gnome-shell/gnome-shell.css" ]]; then
-            theme_css="$dir/gnome-shell/gnome-shell.css"
-            break
-        fi
-    done
-
-    if [[ -z "$theme_css" ]]; then
-        warn "WhiteSur-Dark gnome-shell.css no encontrado — overview sin parchear"
-        return
-    fi
-
-    if grep -q 'archlinux-setup-overview-patch' "$theme_css" 2>/dev/null; then
-        ok "Overview CSS ya parcheado"
-        return
-    fi
-
-    info "Parcheando overview: $theme_css"
-    local patch
-    patch=$(cat <<'CSSPATCH'
-
-/* archlinux-setup-overview-patch */
-.workspace-thumbnails {
-  width: 0 !important;
-  height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  opacity: 0 !important;
-}
-.workspace-background {
-  background-color: transparent !important;
-}
-CSSPATCH
-)
-    if [[ "$theme_css" == /usr/share/* ]]; then
-        printf '%s\n' "$patch" | sudo tee -a "$theme_css" > /dev/null
-    else
-        printf '%s\n' "$patch" >> "$theme_css"
-    fi
-    ok "Workspace thumbnails ocultos via CSS (compatible con Blur My Shell)"
-}
-
-apply_tweaks() {
-    step "Configuración GNOME (dconf)"
-
-    if ! command -v dconf &>/dev/null; then
-        warn "dconf no disponible — ejecuta este paso después del primer login con GNOME"
-        return
-    fi
-
-    info "Desactivando validación de versión de extensiones (necesario para extensiones custom)..."
-    gsettings set org.gnome.shell disable-extension-version-validation true
-
-    info "Cargando configuración GNOME desde gnome-macos.dconf..."
-    dconf load / < "${CONFIGS_DIR}/gnome/gnome-macos.dconf"
-
-    if command -v gnome-extensions &>/dev/null; then
-        info "Activando extensiones..."
-        local exts=(
-            dash-to-dock@micxgx.gmail.com
-            blur-my-shell@aunetx
-            user-theme@gnome-shell-extensions.gcampax.github.com
-            appindicatorsupport@rgcjonas.gmail.com
-            Vitals@CoreCoding.com
-            just-perfection-desktop@just-perfection
-            clipboard-indicator@tudmotu.com
-            hidetopbar@mathieu.bidon.ca
-            dock-magnify@archlinux-setup
-            calendar-tweaks@archlinux-setup
-            panel-tweaks@archlinux-setup
-        )
-        for ext in "${exts[@]}"; do
-            gnome-extensions enable "$ext" 2>/dev/null || true
-        done
-        ok "Extensiones activadas"
-    fi
-
-    _install_app_grid_icon
-    _overview_patch_css
-
-    ok "Configuración GNOME aplicada (tema, fuentes, extensiones)"
-}
-
-install_wallpapers() {
-    step "Wallpapers dinámicos (cambian según la hora)"
-
-    local tmpdir
-    tmpdir=$(mktemp -d)
-
-    info "Clonando WhiteSur-wallpapers..."
-    git clone --depth=1 --branch "$WHITESUR_WALLPAPERS_REF" https://github.com/vinceliuice/WhiteSur-wallpapers.git "$tmpdir" \
-        2>&1 | tee -a "$LOG_FILE"
-
-    info "Instalando wallpapers dinámicos..."
-    (cd "$tmpdir" && bash install-gnome-backgrounds.sh) 2>&1 | tee -a "$LOG_FILE"
-
-    rm -rf "$tmpdir"
-
-    # Activar el wallpaper dinámico WhiteSur (Big Sur) automáticamente
-    local whitesur_xml="$HOME/.local/share/backgrounds/WhiteSur/WhiteSur-timed.xml"
-    if [[ -f "$whitesur_xml" ]]; then
-        gsettings set org.gnome.desktop.background picture-uri "file://${whitesur_xml}"
-        gsettings set org.gnome.desktop.background picture-uri-dark "file://${whitesur_xml}"
-        gsettings set org.gnome.desktop.background picture-options "zoom"
-        ok "Wallpaper dinámico WhiteSur (Big Sur) activado — cambia automáticamente con la hora"
-    else
-        ok "Wallpapers instalados"
-        warn "Seleccioná un wallpaper WhiteSur en Configuración → Fondo de pantalla"
-    fi
-}
-
-_gdm_patch_css() {
-    local gresource="/usr/share/gnome-shell/gnome-shell-theme.gresource"
-    local workdir
-    workdir=$(mktemp -d)
-
-    # Extraer todos los recursos del gresource instalado
-    while IFS= read -r resource; do
-        local rel="${resource#/org/gnome/shell/theme/}"
-        mkdir -p "$workdir/$(dirname "$rel")"
-        gresource extract "$gresource" "$resource" > "$workdir/$rel" 2>/dev/null || true
-    done < <(gresource list "$gresource")
-
-    local css_patch
-    css_patch=$(cat <<'CSSPATCH'
-
-#panel {
-  height: 0 !important;
-  background-color: transparent !important;
-}
-.login-dialog-logo-bin {
-  width: 0 !important;
-  height: 0 !important;
-  margin: 0 !important;
-  opacity: 0 !important;
-}
-.user-icon,
-.login-dialog .user-widget .user-icon,
-.login-dialog .user-widget.vertical .user-icon {
-  icon-size: 0 !important;
-  width: 0 !important;
-  height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  opacity: 0 !important;
-  background-color: transparent !important;
-}
-.user-icon StIcon,
-.login-dialog .user-widget.vertical .user-icon StIcon {
-  icon-size: 0 !important;
-  padding: 0 !important;
-  opacity: 0 !important;
-}
-.login-dialog-button.a11y-button,
-.login-dialog-button.login-dialog-session-list-button,
-.login-dialog-button.switch-user-button {
-  width: 0 !important;
-  height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  opacity: 0 !important;
-}
-#lockDialogGroup {
-  background-image: url("file:///usr/share/backgrounds/gdm-current.jpg") !important;
-}
-CSSPATCH
-)
-    while IFS= read -r css; do
-        printf '%s\n' "$css_patch" >> "$css"
-    done < <(find "$workdir" -name "*.css")
-
-    # Reconstruir el gresource.xml a partir de los recursos extraídos
-    local xml="$workdir/patch.gresource.xml"
-    {
-        echo '<?xml version="1.0" encoding="UTF-8"?>'
-        echo '<gresources>'
-        echo '  <gresource prefix="/org/gnome/shell/theme">'
-        while IFS= read -r resource; do
-            echo "    <file>${resource#/org/gnome/shell/theme/}</file>"
-        done < <(gresource list "$gresource")
-        echo '  </gresource>'
-        echo '</gresources>'
-    } > "$xml"
-
-    # Recompilar y reemplazar
-    (cd "$workdir" && sudo glib-compile-resources patch.gresource.xml \
-        --sourcedir="$workdir" \
-        --target="$gresource") 2>&1 | tee -a "$LOG_FILE"
-
-    rm -rf "$workdir"
-    ok "GDM parcheado (panel, logo, avatar, botones, fondo dinámico)"
-}
-
-_lock_screen_patch_css() {
-    local theme_css=""
-    for dir in /usr/share/themes/WhiteSur-Dark "$HOME/.themes/WhiteSur-Dark" "$HOME/.local/share/themes/WhiteSur-Dark"; do
-        if [[ -f "$dir/gnome-shell/gnome-shell.css" ]]; then
-            theme_css="$dir/gnome-shell/gnome-shell.css"
-            break
-        fi
-    done
-
-    if [[ -z "$theme_css" ]]; then
-        warn "WhiteSur-Dark gnome-shell.css no encontrado — lock screen sin parchear"
-        return
-    fi
-
-    if grep -q 'archlinux-setup-lock-patch' "$theme_css" 2>/dev/null; then
-        ok "Lock screen CSS ya parcheado"
-        return
-    fi
-
-    info "Parcheando lock screen: $theme_css"
-    local patch
-    patch=$(cat <<'CSSPATCH'
-
-/* archlinux-setup-lock-patch */
-.unlock-dialog .user-widget .user-icon,
-.unlock-dialog .user-widget.vertical .user-icon {
-  icon-size: 0 !important;
-  width: 0 !important;
-  height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  opacity: 0 !important;
-  background-color: transparent !important;
-}
-.unlock-dialog .user-widget.vertical .user-icon StIcon {
-  icon-size: 0 !important;
-  padding: 0 !important;
-  opacity: 0 !important;
-}
-.unlock-dialog .cancel-button,
-.unlock-dialog .switch-user-button,
-.unlock-dialog .login-dialog-session-list-button {
-  width: 0 !important;
-  height: 0 !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  opacity: 0 !important;
-}
-CSSPATCH
-)
-    if [[ "$theme_css" == /usr/share/* ]]; then
-        printf '%s\n' "$patch" | sudo tee -a "$theme_css" > /dev/null
-    else
-        printf '%s\n' "$patch" >> "$theme_css"
-    fi
-    ok "Lock screen CSS parcheado — consistente con GDM"
-}
-
-_gdm_generate_blur() {
-    local dir="$1"
-
-    if [[ -f "$dir/WhiteSur-light-blur.jpg" && -f "$dir/WhiteSur-blur.jpg" ]]; then
-        return
-    fi
-
-    if ! command -v magick &>/dev/null && ! command -v convert &>/dev/null; then
-        info "Instalando imagemagick para efecto blur..."
-        sudo pacman -S --noconfirm imagemagick 2>&1 | tee -a "$LOG_FILE"
-    fi
-
-    local blur_cmd="magick"
-    command -v magick &>/dev/null || blur_cmd="convert"
-
-    # WhiteSur-light.jpg (day) and WhiteSur.jpg (night)
-    local src dst
-    src="$dir/WhiteSur-light.jpg"; dst="$dir/WhiteSur-light-blur.jpg"
-    if [[ -f "$src" && ! -f "$dst" ]]; then
-        info "Generando blur: WhiteSur-light-blur.jpg..."
-        sudo "$blur_cmd" "$src" -blur 0x30 "$dst"
-        ok "WhiteSur-light-blur.jpg"
-    fi
-
-    src="$dir/WhiteSur.jpg"; dst="$dir/WhiteSur-blur.jpg"
-    if [[ -f "$src" && ! -f "$dst" ]]; then
-        info "Generando blur: WhiteSur-blur.jpg..."
-        sudo "$blur_cmd" "$src" -blur 0x30 "$dst"
-        ok "WhiteSur-blur.jpg"
-    fi
-}
-
-_gdm_ensure_wallpapers() {
-    local sys_dir="/usr/share/backgrounds/WhiteSur"
-    local user_dir="$HOME/.local/share/backgrounds/WhiteSur"
-
-    if [[ ! -f "$sys_dir/WhiteSur-light.jpg" || ! -f "$sys_dir/WhiteSur.jpg" ]]; then
-        if [[ -d "$user_dir" ]]; then
-            info "Copiando wallpapers WhiteSur a ubicación del sistema..."
-            sudo mkdir -p "$sys_dir"
-            sudo cp "$user_dir"/*.jpg "$sys_dir/" 2>/dev/null || true
-            [[ -f "$user_dir/WhiteSur-timed.xml" ]] && sudo cp "$user_dir/WhiteSur-timed.xml" "$sys_dir/"
-            ok "Wallpapers copiados a $sys_dir"
-        else
-            warn "Wallpapers WhiteSur no encontrados — corré --wallpapers primero"
-            return
-        fi
-    fi
-
-    _gdm_generate_blur "$sys_dir"
-}
-
-_gdm_setup_dynamic_wallpaper() {
-    info "Instalando servicio de wallpaper dinámico..."
-
-    sudo install -m 755 "${SCRIPT_DIR}/gdm-wallpaper-update.sh" /usr/local/bin/gdm-wallpaper-update
-
-    sudo tee /etc/systemd/system/gdm-wallpaper.service > /dev/null <<'UNIT'
-[Unit]
-Description=Update GDM wallpaper based on time of day
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/bin/gdm-wallpaper-update
-UNIT
-
-    sudo tee /etc/systemd/system/gdm-wallpaper.timer > /dev/null <<'UNIT'
-[Unit]
-Description=Update GDM wallpaper hourly
-
-[Timer]
-OnBootSec=0
-OnUnitActiveSec=1h
-
-[Install]
-WantedBy=timers.target
-UNIT
-
-    sudo systemctl daemon-reload
-    sudo systemctl enable --now gdm-wallpaper.timer 2>&1 | tee -a "$LOG_FILE"
-    sudo /usr/local/bin/gdm-wallpaper-update
-    ok "Wallpaper dinámico configurado (actualiza al bootear y cada hora)"
-}
-
+# Login estilo macOS (del pack plasma6macos). ADITIVO Y REVERSIBLE a propósito:
+# un greeter roto te deja afuera, así que NO tocamos autologin ni el manager —
+# solo instalamos el tema tahoe-sddm y lo seleccionamos con un drop-in en
+# /etc/sddm.conf.d/. Para revertir: borrá 95-macos-login.conf.
 apply_login() {
-    step "Login — GDM estilo macOS con wallpaper dinámico"
+    step "Login — look macOS (tahoe-sddm, aditivo)"
 
-    _gdm_ensure_wallpapers
+    if ! command -v sddm &>/dev/null && [[ ! -d /usr/share/sddm/themes ]]; then
+        warn "SDDM no está instalado — corré primero: bash postinstall.sh --kde"
+        return 0
+    fi
 
-    local tmpdir
-    tmpdir=$(mktemp -d)
+    _extract_vendor plasma6macos-sddm.zip || return 0
+    local src="$_VENDOR_TMP"
+    trap 'rm -rf "${src:-}" 2>/dev/null || true' RETURN
 
-    info "Clonando WhiteSur-gtk-theme..."
-    git clone --depth=1 --branch "$WHITESUR_GTK_REF" https://github.com/vinceliuice/WhiteSur-gtk-theme.git "$tmpdir" \
-        2>&1 | tee -a "$LOG_FILE"
-
-    info "Aplicando tema WhiteSur a GDM (requiere sudo)..."
-    (cd "$tmpdir" && sudo ./tweaks.sh -g -nd -b default) 2>&1 | tee -a "$LOG_FILE"
-
-    rm -rf "$tmpdir"
-
-    _gdm_setup_dynamic_wallpaper
-
-    info "Parcheando gresource (panel, logo, avatar, botones, fondo dinámico)..."
-    _gdm_patch_css
-
-    _lock_screen_patch_css
-
-    ok "GDM configurado — login limpio con wallpaper dinámico"
-    warn "Corré: sudo systemctl restart gdm"
+    info "Instalando tema tahoe-sddm..."
+    [[ -d "$src/tahoe-sddm"      ]] && sudo cp -rf "$src/tahoe-sddm"      /usr/share/sddm/themes/ 2>&1 | tee -a "$LOG_FILE"
+    [[ -d "$src/tahoe-sddm-dark" ]] && sudo cp -rf "$src/tahoe-sddm-dark" /usr/share/sddm/themes/ 2>&1 | tee -a "$LOG_FILE"
+    sudo install -d /etc/sddm.conf.d
+    printf '[Theme]\nCurrent=tahoe-sddm\n' | sudo tee /etc/sddm.conf.d/95-macos-login.conf >/dev/null \
+        && ok "Login (SDDM) — tema tahoe-sddm aplicado" \
+        || warn "no se pudo escribir la config de SDDM"
 }
 
 # Driver NVIDIA con módulos abiertos. Blackwell (RTX serie 50, ej. 5060 Ti)
@@ -863,7 +435,7 @@ configure_nvidia() {
     printf 'blacklist nouveau\noptions nouveau modeset=0\n' \
         | sudo tee /etc/modprobe.d/blacklist-nouveau.conf >/dev/null
 
-    # Early KMS: módulos NVIDIA en el initramfs (requerido por la sesión Wayland de GNOME).
+    # Early KMS: módulos NVIDIA en el initramfs (requerido por la sesión Wayland de KDE).
     if [[ -f /etc/mkinitcpio.conf ]] && ! grep -q 'nvidia_drm' /etc/mkinitcpio.conf; then
         info "Agregando módulos NVIDIA a mkinitcpio..."
         sudo sed -i 's/^MODULES=(\(.*\))/MODULES=(\1 nvidia nvidia_modeset nvidia_uvm nvidia_drm)/' /etc/mkinitcpio.conf
@@ -998,41 +570,43 @@ setup_repos() {
     ok "Repos configurados (multilib)"
 }
 
-# Layout de teclado system-wide: English intl (AltGr dead keys). Mismo concepto
-# y resultado que --keyboard de Fedora (ambos usan localectl).
+# Layout de teclado: English intl (AltGr dead keys). Sesión KDE (kxkbrc) +
+# system-wide (localectl). Mismo concepto y resultado que --keyboard de Fedora.
 configure_keyboard() {
     step "Teclado — English intl (AltGr dead keys)"
 
+    # Sesión KDE (kxkbrc)
+    if command -v kwriteconfig6 &>/dev/null; then
+        kwriteconfig6 --file kxkbrc --group Layout --key Use true
+        kwriteconfig6 --file kxkbrc --group Layout --key LayoutList us
+        kwriteconfig6 --file kxkbrc --group Layout --key VariantList altgr-intl
+    else
+        warn "kwriteconfig6 no encontrado — salteando config de teclado de KDE"
+    fi
+
+    # System-wide (login manager + fallback)
     sudo localectl set-x11-keymap us "" altgr-intl 2>&1 | tee -a "$LOG_FILE" \
         || warn "localectl set-x11-keymap falló"
 
     ok "Teclado configurado (us, altgr-intl)"
 }
 
-# Layout de escritorio estilo macOS. En GNOME: extensiones + ajustes dconf.
-# Mismo concepto que --desktop de Fedora (panel layout de KDE).
-configure_desktop() {
-    install_extensions
-    apply_tweaks
-}
-
 run_all() {
     ensure_yay
 
     # CachyOS PRIMERO: agrega los repos optimizados (x86-64-v3/v4) antes de instalar
-    # nada, así GNOME, mesa y el resto se bajan ya compilados para tu CPU.
+    # nada, así KDE, mesa y el resto se bajan ya compilados para tu CPU.
     # El kernel BORE/EEVDF queda instalado y se activa al reiniciar.
     run_module "CachyOS (repos + kernel)"   install_cachyos_repos
     run_module "Repos (multilib)"           setup_repos
     run_module "Hardware (microcode + GPU)" install_hardware
-    run_module "GNOME base"                 install_gnome
-    run_module "Tema WhiteSur"              install_theme
+    run_module "KDE Plasma base"            install_kde
     run_module "Fuentes"                    install_fonts
-    run_module "Terminal"                   install_terminal
-    run_module "Launcher (Ulauncher)"       install_launcher
+    run_module "Terminal (Konsole)"         install_terminal
+    run_module "Launcher (KRunner nativo)"  install_launcher
     run_module "Apps + dev"                 install_apps
-    run_module "Wallpapers"                 install_wallpapers
-    run_module "Escritorio (extensiones + ajustes)" configure_desktop
+    install_macos_look  # pack plasma6macos COMPLETO: MacSequoia + iconos + gtk + kvantum + plasmoides + layout
+    run_module "Login (look macOS)"         apply_login
     run_module "Teclado"                    configure_keyboard
 
     print_summary
@@ -1048,16 +622,16 @@ show_menu() {
         echo "  1) Instalar todo — incluye CachyOS (recomendado)"
         echo "  2) Repos (multilib)"
         echo "  3) Hardware (microcode + GPU NVIDIA)"
-        echo "  4) GNOME base"
-        echo "  5) Tema WhiteSur"
+        echo "  4) KDE Plasma base"
+        echo "  5) Tema macOS (pack plasma6macos)"
         echo "  6) Fuentes"
-        echo "  7) Escritorio (extensiones + ajustes)"
-        echo "  8) Terminal (Kitty + Zsh + Starship)"
-        echo "  9) Launcher (Ulauncher)"
+        echo "  7) Escritorio (layout de paneles fallback)"
+        echo "  8) Terminal (Konsole + Zsh + Starship)"
+        echo "  9) Launcher (KRunner nativo)"
         echo "  a) Apps"
-        echo "  w) Wallpapers dinámicos (cambian por hora)"
+        echo "  w) Wallpaper (MacSequoia)"
         echo "  k) Teclado (us altgr-intl)"
-        echo "  l) Login GDM estilo macOS"
+        echo "  l) Login SDDM estilo macOS"
         echo "  c) CachyOS repos + kernel BORE (ya incluido en 'todo')"
         echo "  0) Salir"
         echo ""
@@ -1067,14 +641,14 @@ show_menu() {
             1) run_all; break ;;
             2) setup_repos; break ;;
             3) install_hardware; break ;;
-            4) install_gnome; break ;;
-            5) install_theme; break ;;
+            4) install_kde; break ;;
+            5) install_macos_look; break ;;
             6) install_fonts; break ;;
             7) configure_desktop; break ;;
             8) install_terminal; break ;;
             9) install_launcher; break ;;
             a) install_apps; break ;;
-            w) install_wallpapers; break ;;
+            w) set_macos_wallpaper; break ;;
             k) configure_keyboard; break ;;
             l) apply_login; break ;;
             c) install_cachyos_repos; break ;;
@@ -1086,20 +660,21 @@ show_menu() {
 
 # ── CLI args ───────────────────────────────────────────────────────────────
 case "${1:-}" in
-    --all)        ensure_yay; run_all ;;
-    --repos)      setup_repos ;;
-    --hardware)   install_hardware ;;
-    --gnome)      ensure_yay; install_gnome ;;
-    --theme)      ensure_yay; install_theme ;;
-    --fonts)      ensure_yay; install_fonts ;;
-    --desktop)    ensure_yay; configure_desktop ;;
-    --terminal)   ensure_yay; install_terminal ;;
-    --launcher)   ensure_yay; install_launcher ;;
-    --apps)       ensure_yay; install_apps ;;
-    --wallpapers) install_wallpapers ;;
-    --keyboard)   configure_keyboard ;;
-    --login)      apply_login ;;
-    --cachyos)    install_cachyos_repos ;;
+    --all)        run_all ;;
+    --repos)      run_module "Repos (multilib)"           setup_repos;        print_summary ;;
+    --hardware)   run_module "Hardware (microcode + GPU)" install_hardware;   print_summary ;;
+    --kde)        run_module "KDE Plasma base"            install_kde;        print_summary ;;
+    --theme)      install_theme;                                              print_summary ;;
+    --macos-look) install_macos_look;                                         print_summary ;;
+    --fonts)      ensure_yay; run_module "Fuentes"        install_fonts;      print_summary ;;
+    --desktop)    run_module "Escritorio (panel-layout.js fallback)" configure_desktop; print_summary ;;
+    --terminal)   run_module "Terminal (Konsole)"         install_terminal;   print_summary ;;
+    --launcher)   run_module "Launcher (KRunner nativo)"  install_launcher;   print_summary ;;
+    --apps)       ensure_yay; run_module "Apps + dev"     install_apps;       print_summary ;;
+    --wallpapers) run_module "Wallpaper (MacSequoia)"     set_macos_wallpaper; print_summary ;;
+    --keyboard)   run_module "Teclado"                    configure_keyboard; print_summary ;;
+    --login)      run_module "Login (look macOS)"         apply_login;        print_summary ;;
+    --cachyos)    run_module "CachyOS (repos + kernel)"   install_cachyos_repos; print_summary ;;
     "")           show_menu ;;
-    *)            echo "Uso: $0 [--all|--repos|--hardware|--gnome|--theme|--fonts|--desktop|--terminal|--launcher|--apps|--wallpapers|--keyboard|--login|--cachyos]"; exit 1 ;;
+    *)            echo "Uso: $0 [--all|--repos|--hardware|--kde|--theme|--macos-look|--fonts|--desktop|--terminal|--launcher|--apps|--wallpapers|--keyboard|--login|--cachyos]"; exit 1 ;;
 esac
