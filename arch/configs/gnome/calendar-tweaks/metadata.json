@@ -1,6 +1,0 @@
-{
-    "name": "Calendar Tweaks",
-    "description": "Hide notification list from calendar popup",
-    "uuid": "calendar-tweaks@archlinux-setup",
-    "shell-version": ["45", "46", "47", "48", "49", "50"]
-}

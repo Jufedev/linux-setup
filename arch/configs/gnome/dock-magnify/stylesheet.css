@@ -1,8 +1,0 @@
-/* Hide workspace thumbnails in overview and app grid */
-.workspace-thumbnails,
-.workspace-thumbnail-indicator {
-    height: 0;
-    width: 0;
-    margin: 0;
-    padding: 0;
-}

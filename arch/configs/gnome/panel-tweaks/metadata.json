@@ -1,7 +1,0 @@
-{
-    "uuid": "panel-tweaks@archlinux-setup",
-    "name": "Panel Tweaks",
-    "description": "Moves quick settings to the left with Arch icon, date/time to the right",
-    "shell-version": ["45", "46", "47", "48", "49", "50"],
-    "version": 1
-}

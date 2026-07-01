@@ -1,7 +1,0 @@
-{
-    "uuid": "dock-magnify@archlinux-setup",
-    "name": "Dock Magnify",
-    "description": "macOS-style fish-eye magnification for Dash to Dock",
-    "shell-version": ["45", "46", "47", "48", "49", "50"],
-    "version": 1
-}
