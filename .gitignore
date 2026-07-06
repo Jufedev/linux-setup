@@ -13,3 +13,7 @@
 id_*
 *_ed25519
 *_rsa
+
+# Fuentes descargadas sueltas en la raíz — se instalan vía --fonts, no van al repo
+/*.ttf
+/*.otf
