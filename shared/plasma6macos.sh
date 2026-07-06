@@ -199,6 +199,20 @@ apply_macos_layout() {
         cp "$target" "${target}.pre-macos.bak"
         info "Backup del layout previo → ${target}.pre-macos.bak"
     fi
+
+    # ¿Sesión gráfica? Hay que CERRAR plasmashell ANTES de pisar el appletsrc.
+    # Si se copia con plasmashell vivo, al salir éste hace un read-modify-write
+    # de su config y FUSIONA su layout en memoria (el panel inferior por
+    # defecto) con el del pack → doble barra de tareas. Cerrándolo primero, el
+    # archivo nuevo se lee limpio al reiniciar.
+    local _graphical=0
+    if [[ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]] && command -v kquitapp6 &>/dev/null; then
+        _graphical=1
+        info "Cerrando plasmashell antes de aplicar el layout..."
+        kquitapp6 plasmashell 2>/dev/null || true
+        sleep 1
+    fi
+
     cp "$appletsrc" "$target"
     info "Layout plasma6macos aplicado"
 
@@ -232,12 +246,10 @@ apply_macos_layout() {
     fi
     [[ -n "$QDBUS" ]] && "$QDBUS" org.kde.KWin /KWin reconfigure 2>/dev/null || true
 
-    # Recargar plasmashell para tomar el nuevo appletsrc. Solo con sesión gráfica;
-    # headless avisa que hay que volver a entrar.
-    if [[ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]] && command -v kquitapp6 &>/dev/null; then
+    # Arrancar plasmashell de nuevo para que lea el appletsrc limpio (ya lo
+    # cerramos antes de copiar). Headless avisa que hay que volver a entrar.
+    if [[ "$_graphical" == 1 ]]; then
         info "Reiniciando plasmashell para cargar el layout..."
-        kquitapp6 plasmashell 2>/dev/null || true
-        sleep 1
         if command -v kstart &>/dev/null; then
             (kstart plasmashell >/dev/null 2>&1 &)
         else
