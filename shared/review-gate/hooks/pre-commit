@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# Gate de review — pre-commit. Instalado por shared/review-gate/install.sh.
+#
+# Valida el recibo content-bound de gentle-ai ANTES de dejar entrar el commit.
+# Falla CERRADO: si el tool no está, o no hay recibo, o el recibo no cubre este
+# contenido exacto, el commit no entra.
+#
+# No hay variable de entorno para saltearlo, a propósito: el único bypass es
+# `git commit --no-verify`, que es explícito, visible en el reflog del que lo
+# corre, y un acto humano deliberado. Un agente no debe usarlo nunca.
+set -uo pipefail
+
+GATE="pre-commit"
+REPO=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+
+if ! command -v gentle-ai &>/dev/null; then
+    echo "✗ review-gate: 'gentle-ai' no está en PATH — no se puede validar el recibo." >&2
+    echo "  El gate falla cerrado. Instalá gentle-ai o desinstalá el hook:" >&2
+    echo "    bash shared/review-gate/install.sh --uninstall $REPO" >&2
+    exit 1
+fi
+
+out=$(gentle-ai review validate --gate "$GATE" --cwd "$REPO" 2>&1)
+rc=$?
+
+if [[ $rc -eq 0 ]]; then
+    echo "✓ review-gate: recibo válido para $GATE"
+    exit 0
+fi
+
+echo "" >&2
+echo "✗ review-gate: commit BLOQUEADO en $GATE" >&2
+echo "$out" | sed 's/^/  /' >&2
+echo "" >&2
+echo "  Qué hacer según el estado:" >&2
+echo "    receipt_missing  → corré la review:  gentle-ai review start --cwd $REPO" >&2
+echo "    escalated        → arreglá los hallazgos, luego:" >&2
+echo "                       bash shared/review-gate/review-cycle.sh unblock $REPO" >&2
+echo "" >&2
+exit 1

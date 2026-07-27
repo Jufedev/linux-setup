@@ -4,7 +4,7 @@
 # Ejecutar como usuario normal después del primer boot
 # Uso: bash postinstall.sh [--all | --repos | --hardware | --fonts | --theme |
 #          --macos-look | --desktop | --terminal | --launcher | --apps |
-#          --wallpapers | --keyboard | --login | --debloat]
+#          --wallpapers | --keyboard | --login | --debloat | --verify-gpu]
 # Sin argumentos = muestra el uso
 # ============================================================================
 set -euo pipefail
@@ -104,15 +104,34 @@ dnf_remove() {
 # negra silenciosa. Si RPM Fusion tiene el open desincronizado del userspace,
 # dnf puede arrastrar el propietario para satisfacer xorg-x11-drv-nvidia. Esto
 # convierte ese fallo silencioso en una advertencia visible (y en el resumen).
+
+# Predicados puros del flavor de kmod (0 = presente). Existen para que tanto el
+# reporte (verify_nvidia_open_kmod) como el VEREDICTO (verify_gpu_integrity)
+# consulten la misma fuente: antes el veredicto ignoraba el flavor por completo.
+nvidia_proprietary_kmod_present() {
+    rpm -q akmod-nvidia &>/dev/null || rpm -q kmod-nvidia &>/dev/null
+}
+
+nvidia_open_kmod_present() {
+    rpm -q akmod-nvidia-open &>/dev/null || rpm -q kmod-nvidia-open &>/dev/null
+}
+
+# Marca que el veredicto de flavor YA se imprimió en esta corrida. configure_hardware
+# lo emite antes del gate (lo necesita para explicar un aborto) y verify_gpu_integrity
+# lo emitiría otra vez al final de la MISMA corrida: sin este flag, `--hardware` imprime
+# el bloque dos veces y empuja el tag duplicado a FAILED_PKGS.
+NVIDIA_FLAVOR_REPORTED=0
+
 verify_nvidia_open_kmod() {
+    NVIDIA_FLAVOR_REPORTED=1
     # La señal de peligro es la PRESENCIA del propietario, no la ausencia del open:
     # cuando RPM Fusion tiene el open desincronizado (open más viejo que el userspace),
     # dnf instala el open PERO arrastra akmod-nvidia (propietario) como dependencia
     # para igualar nvidia-kmod=<userspace>. Quedan los dos, y el propietario es el que
     # matchea el userspace → es el que cargaría → pantalla negra en Blackwell.
     local has_open="false" has_prop="false"
-    { rpm -q akmod-nvidia-open || rpm -q kmod-nvidia-open; } &>/dev/null && has_open="true"
-    { rpm -q akmod-nvidia      || rpm -q kmod-nvidia;       } &>/dev/null && has_prop="true"
+    nvidia_open_kmod_present        && has_open="true"
+    nvidia_proprietary_kmod_present && has_prop="true"
 
     if [[ "$has_prop" == "true" ]]; then
         warn "⚠ El módulo NVIDIA PROPIETARIO (akmod/kmod-nvidia) quedó instalado."
@@ -133,6 +152,228 @@ verify_nvidia_open_kmod() {
         warn "No se detectó ningún kmod NVIDIA instalado — revisá la salida de dnf más arriba."
         FAILED_PKGS+=("nvidia-kmod-missing")
     fi
+}
+
+# ── Integridad del driver NVIDIA (gate anti-pantalla-negra) ──────────────────
+# verify_nvidia_open_kmod mira el FLAVOR del rpm, pero no responde la otra
+# pregunta que importa antes de reiniciar: ¿existe el módulo para los kernels
+# que la máquina puede bootear?
+#
+# Por qué es crítico: en un desktop de una sola GPU la iGPU queda deshabilitada
+# en BIOS (ver README). Si el initramfs sale con nouveau bloqueado y SIN módulo
+# NVIDIA construido, el próximo boot se queda sin driver de video y no hay
+# segunda salida para depurar. El build tiene que verificarse ANTES de tocar
+# nada que apague nouveau.
+
+# Lista los kernels que PODRÍAN bootear, no solo el que corre ahora. `--repos`
+# ejecuta `dnf upgrade --refresh`, que puede instalar un kernel nuevo, y en
+# `--all` eso pasa JUSTO ANTES de este módulo: mirar solo `uname -r` dejaría
+# pasar un build que falló precisamente para el kernel que va a bootear.
+list_bootable_kernels() {
+    local d
+    if rpm -q kernel-core &>/dev/null; then
+        rpm -q kernel-core --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n'
+        return 0
+    fi
+    for d in /usr/lib/modules/*/; do
+        [[ -d "$d" ]] && basename "$d"
+    done
+    return 0
+}
+
+# Emite por stdout los kernels que NO tienen el módulo nvidia construido.
+nvidia_kernels_missing_module() {
+    local k
+    while read -r k; do
+        [[ -n "$k" ]] || continue
+        modinfo -k "$k" nvidia &>/dev/null || printf '%s\n' "$k"
+    done < <(list_bootable_kernels)
+    return 0
+}
+
+# Gate: el módulo tiene que existir para TODOS los kernels booteables.
+# FAIL-CLOSED: si no se puede enumerar ni un kernel, la lista de "faltantes" sale
+# vacía y una comparación ingenua daría OK sin haber verificado NADA. Un falso OK
+# acá apaga nouveau sin red, así que la ausencia de datos se trata como fallo.
+#
+# Alcance honesto: `modinfo` prueba que el archivo del módulo existe y parsea
+# para ese kernel — NO que vaya a insertarse (Secure Boot o símbolos sin
+# resolver pueden rechazarlo igual). Por eso el aviso de Secure Boot va aparte.
+#
+# Fuente ÚNICA del diagnóstico: emite el warn que corresponda y devuelve 0 solo
+# si el módulo existe para todos los kernels booteables. La consultan el gate
+# (configure_hardware), la auditoría (verify_gpu_integrity) y el predicado mudo
+# de abajo: antes esta misma lógica estaba escrita tres veces y podían discrepar.
+report_nvidia_module_built() {
+    local kernels missing
+    kernels=$(list_bootable_kernels)
+    if [[ -z "$kernels" ]]; then
+        warn "✗ No se pudo enumerar ningún kernel instalado — no se puede verificar el módulo."
+        return 1
+    fi
+    missing=$(nvidia_kernels_missing_module)
+    if [[ -n "$missing" ]]; then
+        warn "✗ Falta el módulo nvidia para: $(echo "$missing" | tr '\n' ' ')"
+        return 1
+    fi
+    return 0
+}
+
+# Predicado mudo, para los sitios que solo necesitan el booleano sin imprimir.
+verify_nvidia_module_built() {
+    report_nvidia_module_built &>/dev/null
+}
+
+# Deja la máquina booteable con nouveau (degradado pero CON imagen) en vez de
+# sin driver. Es el rollback que se ejecuta solo si el módulo no está.
+# Reporta el resultado REAL: un rollback a medias es más peligroso que ninguno,
+# porque el usuario reiniciaría creyendo que está a salvo.
+#
+# ALCANCE: revierte para TODOS los kernels, no solo el que falló. Tiene que ser
+# así porque `grubby --update-kernel=ALL` puso nvidia-drm.modeset=1 en todos:
+# revertir uno solo dejaría el resto con KMS de NVIDIA y sin blacklist, que es
+# el estado incoherente que causa pantalla negra. La contrapartida es real y se
+# anuncia abajo: si la máquina YA venía funcionando con NVIDIA y falla el build
+# de un kernel nuevo, este rollback también desconfigura el kernel que andaba.
+rollback_nouveau_blacklist() {
+    local rc=0
+    warn "Revirtiendo los cambios que dejarían la máquina sin driver de video..."
+    warn "  ALCANCE: se revierte en TODOS los kernels instalados, no solo el que falló."
+    warn "  Si esta máquina ya arrancaba con NVIDIA, ese kernel también vuelve a nouveau:"
+    warn "  el próximo boot tendrá imagen, pero SIN driver NVIDIA hasta re-correr --hardware."
+
+    sudo rm -f /etc/modprobe.d/blacklist-nouveau.conf \
+        || { warn "No se pudo borrar blacklist-nouveau.conf"; rc=1; }
+
+    if command -v grubby &>/dev/null; then
+        sudo grubby --update-kernel=ALL --remove-args="nvidia-drm.modeset=1" 2>&1 | tee -a "$LOG_FILE" \
+            || { warn "grubby falló al quitar nvidia-drm.modeset"; rc=1; }
+    fi
+
+    # --regenerate-all: grubby de arriba toca TODOS los kernels, así que el
+    # rollback tiene que alcanzar todos los initramfs, no solo el que corre.
+    sudo dracut --force --regenerate-all 2>&1 | tee -a "$LOG_FILE" \
+        || { warn "dracut --force --regenerate-all falló durante el rollback"; rc=1; }
+
+    if [[ $rc -eq 0 ]]; then
+        ok "nouveau reactivado — el próximo boot arranca con imagen (sin driver NVIDIA)"
+    else
+        warn "⚠ EL ROLLBACK FALLÓ — NO REINICIES todavía."
+        warn "  El initramfs puede seguir sin nouveau: reiniciar así te deja sin video."
+        warn "  Corregilo a mano y verificá que termine bien:"
+        warn "    sudo rm -f /etc/modprobe.d/blacklist-nouveau.conf && sudo dracut --force --regenerate-all"
+        FAILED_PKGS+=("nouveau-rollback-failed")
+    fi
+    return $rc
+}
+
+# Verificación de integridad post-instalación (y post-reboot). Es el módulo que
+# faltaba: comprueba estado REAL, no qué dijo dnf. Ejecutable suelto con
+# --verify-gpu para auditar la máquina en cualquier momento.
+#
+# NO imprime su propio banner: la invocan run_module (que ya emite "▶ label") y
+# configure_hardware al final del módulo. Un step() acá duplicaba el encabezado
+# en --verify-gpu y metía un tercer banner anidado a mitad de --hardware.
+verify_gpu_integrity() {
+    local problems=0
+
+    # Guard de pciutils, igual que configure_hardware: --verify-gpu es ejecutable
+    # suelto y puede correr en una máquina donde lspci no está instalado.
+    # FAIL-CLOSED: sin lspci NO se puede afirmar que no hay GPU. Antes esta rama
+    # se comía el "command not found" y devolvía 0 con "nada que verificar" — la
+    # auditoría daba OK sin haber mirado nada, justo el fallo silencioso que este
+    # módulo existe para evitar.
+    if ! command -v lspci &>/dev/null; then
+        warn "✗ lspci no está instalado (paquete pciutils) — no se puede verificar la GPU."
+        warn "  Instalalo con: sudo dnf install pciutils"
+        FAILED_PKGS+=("pciutils-missing")
+        return 1
+    fi
+
+    if ! lspci 2>/dev/null | grep -qi 'nvidia'; then
+        info "No hay GPU NVIDIA en el bus — nada que verificar"
+        return 0
+    fi
+
+    # 1. Flavor correcto (abierto, nunca el propietario en Blackwell).
+    #    verify_nvidia_open_kmod REPORTA pero siempre retorna 0, así que el
+    #    veredicto consulta los predicados directo: si no, esta auditoría podría
+    #    decir "OK" justo sobre el peligro que le da sentido a todo el módulo.
+    #    Solo se reporta si nadie lo hizo ya en esta corrida (ver NVIDIA_FLAVOR_REPORTED):
+    #    en --verify-gpu suelto imprime; dentro de --hardware ya lo emitió el gate.
+    [[ "$NVIDIA_FLAVOR_REPORTED" == "1" ]] || verify_nvidia_open_kmod
+    if nvidia_proprietary_kmod_present; then
+        problems=$((problems + 1))
+    elif ! nvidia_open_kmod_present; then
+        problems=$((problems + 1))
+    fi
+
+    # 2. El módulo existe para TODOS los kernels booteables (no solo el corriente).
+    #    Sin lista de kernels no hay verificación posible → se cuenta como problema.
+    #    Mismo diagnóstico que consulta el gate (report_nvidia_module_built).
+    if report_nvidia_module_built; then
+        ok "Módulo nvidia construido para todos los kernels instalados"
+    else
+        problems=$((problems + 1))
+    fi
+
+    # 3. ¿Está cargado? (solo tiene sentido después de reiniciar)
+    local nvidia_loaded="false"
+    if lsmod | grep -q '^nvidia'; then
+        nvidia_loaded="true"
+        ok "Módulo nvidia CARGADO en el kernel"
+    else
+        warn "Módulo nvidia no cargado (normal si todavía no reiniciaste)"
+    fi
+
+    # 4. nouveau ocupando la placa. Pre-reboot SIEMPRE está cargado (es el que
+    #    maneja tu pantalla ahora mismo): solo es un problema real si convive
+    #    con el módulo NVIDIA ya cargado. Sin esta distinción, toda primera
+    #    corrida exitosa daba un falso positivo.
+    if lsmod | grep -q '^nouveau'; then
+        if [[ "$nvidia_loaded" == "true" ]]; then
+            warn "nouveau cargado JUNTO al módulo NVIDIA — conflicto real"
+            problems=$((problems + 1))
+        else
+            info "nouveau todavía cargado (normal si no reiniciaste; se libera en el próximo boot)"
+        fi
+    fi
+
+    # 5. El userspace responde (la prueba de fuego).
+    #    `timeout`: contra un driver a medio cargar nvidia-smi puede colgarse en
+    #    el ioctl y nunca devolver — justo el estado que esta herramienta existe
+    #    para diagnosticar. Colgar la auditoría sería el peor resultado posible.
+    if command -v nvidia-smi &>/dev/null; then
+        local smi_rc=0
+        timeout 15 nvidia-smi &>/dev/null || smi_rc=$?
+        if [[ $smi_rc -eq 0 ]]; then
+            ok "nvidia-smi responde — driver operativo"
+        elif [[ $smi_rc -eq 124 ]]; then
+            warn "✗ nvidia-smi se colgó (timeout 15s) — driver en mal estado, no solo ausente"
+            problems=$((problems + 1))
+        else
+            warn "nvidia-smi existe pero falla (normal si todavía no reiniciaste)"
+        fi
+    else
+        warn "nvidia-smi no está instalado — falta xorg-x11-drv-nvidia-cuda"
+        problems=$((problems + 1))
+    fi
+
+    # 6. Coherencia peligrosa: nouveau bloqueado y sin módulo NVIDIA = sin video.
+    if [[ -f /etc/modprobe.d/blacklist-nouveau.conf ]] && ! verify_nvidia_module_built; then
+        warn "⚠ PELIGRO: nouveau está bloqueado y el módulo NVIDIA no existe."
+        warn "  Reiniciar así te deja SIN driver de video y sin iGPU de respaldo."
+        warn "  Rollback: sudo rm /etc/modprobe.d/blacklist-nouveau.conf && sudo dracut --force --regenerate-all"
+        FAILED_PKGS+=("nvidia-unsafe-to-reboot")
+        problems=$((problems + 1))
+    fi
+
+    if [[ $problems -eq 0 ]]; then
+        ok "Integridad del driver NVIDIA: OK"
+        return 0
+    fi
+    warn "Integridad del driver NVIDIA: $problems problema(s) — ver detalle arriba"
+    return 1
 }
 
 # Instala apps de Flathub. Mismo patrón batch→individual que dnf_install.
@@ -520,6 +761,65 @@ configure_hardware() {
     # Safeguard: confirmar que dnf no arrastró el módulo propietario en su lugar.
     verify_nvidia_open_kmod
 
+    # ORDEN CRÍTICO: construir y VERIFICAR el módulo ANTES de apagar nouveau.
+    # (Antes el blacklist se escribía primero y `akmods --force` solo advertía al
+    # fallar: un build roto se horneaba igual en el initramfs y el siguiente boot
+    # quedaba sin driver de video — sin iGPU de respaldo, sin forma de depurar.)
+    info "Construyendo el módulo akmod (puede tardar unos minutos)..."
+    sudo akmods --force 2>&1 | tee -a "$LOG_FILE" || warn "akmods --force devolvió error"
+
+    # Secure Boot: un módulo sin firmar no carga. Se avisa ANTES del gate porque
+    # explica por qué el módulo puede estar construido y aun así no funcionar.
+    if command -v mokutil &>/dev/null && mokutil --sb-state 2>/dev/null | grep -qi 'enabled'; then
+        warn "Secure Boot ACTIVO — el módulo NVIDIA no cargará sin firma."
+        warn "  Opción A (simple): deshabilitá Secure Boot en BIOS."
+        warn "  Opción B: firmá el módulo (kmodgenca -a && mokutil --import). Ver README."
+    fi
+
+    # ── GATE anti-pantalla-negra ──────────────────────────────────────────────
+    # Si el módulo no quedó construido —o quedó el FLAVOR equivocado— NO se toca
+    # nouveau y se aborta. Además se revierte cualquier blacklist que hubiera
+    # dejado una corrida anterior, para que la máquina quede booteable con nouveau
+    # en vez de sin driver.
+    #
+    # Por qué el flavor se verifica ACÁ y no solo en verify_gpu_integrity: esa
+    # auditoría corre DESPUÉS del blacklist y del dracut, o sea después del punto
+    # sin retorno. Y `modinfo` no alcanza como gate porque el módulo abierto y el
+    # propietario se llaman IGUAL (`nvidia`): con el propietario instalado el
+    # chequeo de existencia pasa limpio, y es justo el que deja pantalla negra en
+    # Blackwell. Gate y auditoría consultan los mismos predicados a propósito.
+    local gate_failed="false"
+
+    if nvidia_proprietary_kmod_present; then
+        warn "✗ El módulo NVIDIA PROPIETARIO (akmod/kmod-nvidia) está instalado."
+        warn "  En placas Blackwell (RTX 50) NO soporta el hardware: bloquear nouveau"
+        warn "  ahora deja PANTALLA NEGRA en el próximo boot. Ver el detalle más arriba."
+        FAILED_PKGS+=("nvidia-gate-wrong-flavor")
+        gate_failed="true"
+    elif ! nvidia_open_kmod_present; then
+        warn "✗ No hay ningún kmod NVIDIA instalado — no hay driver que reemplace a nouveau."
+        FAILED_PKGS+=("nvidia-gate-no-kmod")
+        gate_failed="true"
+    fi
+
+    if ! report_nvidia_module_built; then
+        FAILED_PKGS+=("nvidia-module-build-failed")
+        gate_failed="true"
+    fi
+
+    if [[ "$gate_failed" == "true" ]]; then
+        warn "  NO se va a bloquear nouveau: reiniciar así te dejaría sin driver de video."
+        if [[ -f /etc/modprobe.d/blacklist-nouveau.conf ]]; then
+            rollback_nouveau_blacklist || warn "  El rollback no terminó limpio (ver arriba)."
+        fi
+        warn "  Revisá el log del build: $LOG_FILE  (y /var/cache/akmods/)"
+        warn "  Causa típica: falta kernel-devel de ESE kernel, o RPM Fusion todavía no"
+        warn "  lo soporta. Instalá los headers o re-corré --hardware tras un 'dnf upgrade'."
+        return 1
+    fi
+    ok "Módulo nvidia ABIERTO construido y verificado para todos los kernels instalados"
+
+    # A partir de acá el módulo EXISTE — recién ahora es seguro apagar nouveau.
     # Nouveau bloquea la init del módulo NVIDIA (pantalla negra) si llega a cargar.
     info "Blacklisting nouveau..."
     printf 'blacklist nouveau\noptions nouveau modeset=0\n' \
@@ -533,21 +833,35 @@ configure_hardware() {
             || warn "grubby falló al setear nvidia-drm.modeset"
     fi
 
-    # Forzar el build del akmod ahora (en vez de esperar al próximo boot) y
-    # regenerar el initramfs para que tome el blacklist de nouveau.
-    info "Construyendo el módulo akmod (puede tardar unos minutos)..."
-    sudo akmods --force 2>&1 | tee -a "$LOG_FILE" || warn "akmods --force devolvió error (puede completarse en el boot)"
-    sudo dracut --force 2>&1 | tee -a "$LOG_FILE" || warn "dracut --force falló"
-
-    # Secure Boot: un módulo sin firmar no carga. Avisamos, no lo resolvemos solos
-    # (firmar requiere enrolar una MOK con reboot interactivo).
-    if command -v mokutil &>/dev/null && mokutil --sb-state 2>/dev/null | grep -qi 'enabled'; then
-        warn "Secure Boot ACTIVO — el módulo NVIDIA no cargará sin firma."
-        warn "  Opción A (simple): deshabilitá Secure Boot en BIOS."
-        warn "  Opción B: firmá el módulo (kmodgenca -a && mokutil --import). Ver README."
+    # Regenerar el initramfs para que tome el blacklist de nouveau. Si esto falla
+    # el blacklist YA está escrito en disco: el initramfs viejo puede no coincidir
+    # con la config, así que es un fallo que tiene que propagar, no un aviso.
+    #
+    # --regenerate-all (no solo --force): sin él dracut toca ÚNICAMENTE el kernel
+    # que corre ahora, mientras `grubby --update-kernel=ALL` de arriba puso
+    # nvidia-drm.modeset=1 en TODOS. Un kernel instalado por `dnf upgrade` —que
+    # además pasa a ser el default de GRUB— conservaría su initramfs sin el
+    # blacklist: nouveau carga temprano con nvidia-drm tomando KMS = pantalla negra.
+    local dracut_rc=0
+    sudo dracut --force --regenerate-all 2>&1 | tee -a "$LOG_FILE" || dracut_rc=1
+    if [[ $dracut_rc -ne 0 ]]; then
+        warn "dracut --force --regenerate-all falló tras escribir el blacklist de nouveau."
+        rollback_nouveau_blacklist || warn "  El rollback tampoco terminó limpio."
+        FAILED_PKGS+=("dracut-failed")
+        return 1
     fi
 
-    ok "GPU NVIDIA configurada — reiniciá y verificá con: nvidia-smi"
+    # Veredicto final: un solo mensaje coherente. Antes se imprimía "NO reinicies"
+    # y "reiniciá" seguidos, y el non-zero se tragaba, así que run_module/
+    # print_summary reportaban éxito aunque la integridad fallara.
+    if verify_gpu_integrity; then
+        ok "GPU NVIDIA configurada — reiniciá y verificá con: bash postinstall.sh --verify-gpu"
+        return 0
+    fi
+
+    warn "GPU NVIDIA configurada CON OBSERVACIONES — revisalas ANTES de reiniciar."
+    warn "  Re-auditá cuando las resuelvas: bash postinstall.sh --verify-gpu"
+    return 1
 }
 
 # ── plasma6macos: el "look del video" ────────────────────────────────────────
@@ -660,8 +974,9 @@ case "${1:-}" in
     --keyboard)   run_module "Keyboard"                     configure_keyboard; print_summary ;;
     --login)      run_module "Login (look macOS)"           apply_login;        print_summary ;;
     --debloat)    run_module "Debloat (Fedora-only)"        debloat_system;     print_summary ;;
+    --verify-gpu) run_module "Verificación de integridad (GPU)" verify_gpu_integrity; print_summary ;;
     *)
-        echo "Usage: $0 [--all | --repos | --hardware | --fonts | --theme | --macos-look | --desktop | --terminal | --launcher | --apps | --wallpapers | --keyboard | --login | --debloat]"
+        echo "Usage: $0 [--all | --repos | --hardware | --fonts | --theme | --macos-look | --desktop | --terminal | --launcher | --apps | --wallpapers | --keyboard | --login | --debloat | --verify-gpu]"
         exit 0
         ;;
 esac

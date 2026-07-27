@@ -75,6 +75,7 @@ The script is safe to re-run. Each module is idempotent.
 | `--keyboard` | Sets English intl (AltGr dead keys) keyboard layout (KDE session + system-wide via localectl) |
 | `--login` | macOS login look (from the pack). **Additive + reversible:** sets the greeter wallpaper via a drop-in (Plasma Login Manager on Fedora 44) or installs the `tahoe-sddm` theme (SDDM spins). Never touches autologin or the manager itself |
 | `--debloat` | **Fedora-only, opt-in (NOT in `--all`).** Removes preinstalled KDE Spin apps that don't fit a minimal macOS-style desktop. See [Debloat](#debloat-fedora-only) |
+| `--verify-gpu` | **Read-only audit, opt-in (NOT in `--all`).** Checks the *real* state of the NVIDIA driver — kmod flavour (open vs proprietary), module built for every bootable kernel, module loaded, nouveau conflict, `nvidia-smi` responding. Changes nothing. Run it after rebooting, or any time you want to know whether the machine is safe to reboot. See [NVIDIA Dedicated GPU](#nvidia-dedicated-gpu-blackwell--rtx-50) |
 
 ## Debloat (Fedora-only)
 
@@ -119,10 +120,12 @@ The proprietary module does not support this architecture.
 bash fedora/scripts/postinstall.sh --hardware
 ```
 
-It installs `akmod-nvidia-open` + CUDA/VAAPI support, blacklists nouveau, sets
-`nvidia-drm.modeset=1`, builds the akmod, and rebuilds the initramfs. Reboot and
-verify with `nvidia-smi`. Without an NVIDIA card the module is a no-op (Mesa
-already covers AMD/Intel on Fedora).
+It installs `akmod-nvidia-open` + CUDA/VAAPI support, **builds the akmod and
+verifies it exists for every bootable kernel**, and only then blacklists nouveau,
+sets `nvidia-drm.modeset=1` and rebuilds the initramfs. That order is the whole
+safeguard — see [Integrity check](#integrity-check-and-the-black-screen-gate). Reboot
+and verify with `nvidia-smi` (or `--verify-gpu`). Without an NVIDIA card the module
+is a no-op (Mesa already covers AMD/Intel on Fedora).
 
 > **Open-module policy + safeguard.** The driver install always runs with
 > `--exclude=akmod-nvidia,kmod-nvidia`: on Blackwell the proprietary kmod must
@@ -150,6 +153,78 @@ already covers AMD/Intel on Fedora).
 > NVIDIA GPU, force the branch: `FORCE_GPU=nvidia bash fedora/scripts/postinstall.sh --hardware`.
 > This validates package resolution and the akmod build; the module won't *load*
 > without real hardware.
+
+### Integrity check and the black-screen gate
+
+Package-level success is not the same as a working driver: `dnf` can succeed and
+the kernel module still fail to build. `--hardware` therefore **builds and
+verifies the module before touching nouveau**, and refuses to go further if the
+build did not produce one:
+
+```bash
+bash fedora/scripts/postinstall.sh --verify-gpu   # audit anytime, before or after reboot
+```
+
+It checks the kmod flavor (open, never proprietary — and that verdict counts
+toward the result, it is not merely printed), that the module is built for **every
+installed kernel**, whether it is loaded, whether nouveau conflicts with a loaded
+NVIDIA module, that `nvidia-smi` answers, and — the dangerous combination —
+whether nouveau is blacklisted while no NVIDIA module exists.
+
+> **Why every kernel, not just the running one.** `--repos` runs
+> `dnf upgrade --refresh`, which can install a newer kernel, and in `--all` that
+> happens immediately before `--hardware`. Checking only `uname -r` would accept a
+> build that succeeded for the running kernel and failed for the one the machine
+> is about to boot by default — passing the gate straight into a black screen.
+
+> **Fail-closed.** If no kernel can be enumerated at all, the gate treats that as a
+> failure rather than a pass: an empty "missing" list must never be mistaken for
+> "nothing is missing".
+
+> **What the gate does not prove.** `modinfo` confirms the module file exists and
+> parses for a given kernel — not that it will insert. Secure Boot rejection or
+> unresolved symbols can still block loading, which is why the Secure Boot warning
+> stays separate.
+
+> **Why the order matters.** Blacklisting nouveau before confirming the build
+> means a failed build gets baked into the initramfs anyway, and the next boot has
+> no video driver at all. On a single-GPU desktop the iGPU is disabled in BIOS, so
+> there is **no second output to debug from**. The gate exists because the recovery
+> is far more expensive than the check.
+
+### Rollback — recovering from a black screen
+
+If the module is missing, `--hardware` attempts a rollback that leaves the machine
+bootable on nouveau. The rollback reports its **real** outcome: if any step fails it
+says so loudly and tells you not to reboot, because a half-completed rollback is
+more dangerous than none.
+
+> **The rollback is best-effort, not a guarantee.** Its fix-forward step is the same
+> `dracut` invocation that may have just failed, and no backup of the previous
+> initramfs is taken — so if the initramfs itself is the broken part, the rollback
+> cannot repair it. That is precisely why it prints "DO NOT REBOOT" instead of a
+> success message. When you see that warning, treat the machine as unbootable and
+> recover from the GRUB menu (below) rather than rebooting on faith.
+
+To do it by hand:
+
+```bash
+sudo rm -f /etc/modprobe.d/blacklist-nouveau.conf
+sudo grubby --update-kernel=ALL --remove-args="nvidia-drm.modeset=1"
+sudo dracut --force --regenerate-all
+sudo reboot
+```
+
+If you are already staring at a black screen, recover from the GRUB menu — press
+`Esc`/`Shift` at boot, then `e` on the entry and append to the `linux` line:
+
+```
+nouveau.modeset=1 modprobe.blacklist=nvidia 3
+```
+
+`Ctrl+X` boots that once, into a text console, with nouveau alive. Log in and run
+the four commands above. Re-enabling the iGPU in BIOS is the other lifeboat, and
+worth doing temporarily if the console is not reachable either.
 
 ### BIOS — disable the integrated GPU first
 

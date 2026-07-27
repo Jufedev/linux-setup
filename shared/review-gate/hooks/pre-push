@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Gate de review — pre-push. Instalado por shared/review-gate/install.sh.
+# Mismo contrato que pre-commit: valida el recibo content-bound y falla cerrado.
+# Bypass explícito y humano: `git push --no-verify`.
+set -uo pipefail
+
+GATE="pre-push"
+REPO=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+
+if ! command -v gentle-ai &>/dev/null; then
+    echo "✗ review-gate: 'gentle-ai' no está en PATH — no se puede validar el recibo." >&2
+    exit 1
+fi
+
+out=$(gentle-ai review validate --gate "$GATE" --cwd "$REPO" 2>&1)
+rc=$?
+
+if [[ $rc -eq 0 ]]; then
+    echo "✓ review-gate: recibo válido para $GATE"
+    exit 0
+fi
+
+echo "" >&2
+echo "✗ review-gate: push BLOQUEADO en $GATE" >&2
+echo "$out" | sed 's/^/  /' >&2
+echo "" >&2
+exit 1
