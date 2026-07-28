@@ -141,8 +141,8 @@ run_module() {
 # ============================================================================
 
 # Lo único que CachyOS no trae y este equipo necesita.
-#   podman + distrobox: el pipeline de shorts-generate corre dentro del
-#     distrobox 'shorts'. Sin esto no hay proyecto.
+#   podman + distrobox: los proyectos corren en contenedores, no en el host —
+#     cada uno con su toolchain adentro. Ver README.md → "Proyectos en distrobox".
 #   microsoft-edge-stable-bin: navegador principal del usuario. Es el ÚNICO
 #     paquete de AUR de todo el setup. Firefox ya lo instala CachyOS.
 install_apps() {
@@ -232,8 +232,8 @@ print_summary() {
     echo -e "${G}Pasos finales:${NC}"
     echo "  • Verificá el driver antes de confiar:  nvidia-smi"
     echo "  • Verificá los snapshots:               snapper -c root list"
-    echo "  • Distrobox del pipeline (con GPU):     distrobox create --nvidia ..."
-    echo "    Ver README.md → '2. Después del primer boot' y '4. El distrobox del pipeline'"
+    echo "  • Distrobox de un proyecto (con GPU):   distrobox create --nvidia ..."
+    echo "    Ver README.md → '2. Después del primer boot' y '4. Proyectos en distrobox'"
     echo ""
 
     # Código de salida no-cero si hubo fallos (útil para scripts llamadores)

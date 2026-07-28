@@ -98,23 +98,36 @@ bash shared/ssh-github.sh
 
 ---
 
-## 4. El distrobox del pipeline (shorts-generate)
+## 4. Proyectos en distrobox
 
-El pipeline de video corre dentro de un distrobox. **Creálo con `--nvidia`** o el
-contenedor no ve CUDA ni NVENC, por más que el driver del host esté perfecto:
+Los proyectos no se instalan en el host: cada uno corre en su propio distrobox con su
+toolchain adentro. El host queda limpio y un proyecto no arrastra las dependencias del
+otro. Para eso están `podman` y `distrobox` en el módulo `--apps`.
+
+El patrón, con la imagen que defina cada proyecto:
 
 ```bash
-cd ~/projects/shorts-generate
-podman build -t shorts-env -f Containerfile .
-distrobox create --name shorts --image localhost/shorts-env:latest --nvidia
-distrobox enter shorts
-make install
+cd ~/Projects/<proyecto>
+podman build -t <proyecto>-env -f Containerfile .
+distrobox create --name <proyecto> --image localhost/<proyecto>-env:latest --nvidia
+distrobox enter <proyecto>
 ```
 
-> **Pendiente del lado de `shorts-generate`**: `src/utils/ffmpeg_wrappers.py` ramifica
-> entre VAAPI y libx264. En NVIDIA la VAAPI de *encode* no existe (el bridge es solo
-> decode), así que hace falta una rama **NVENC**. El `ffmpeg` de la imagen ya trae
-> `h264_nvenc` compilado — es solo código.
+> **`--nvidia` se decide al crear, no después.** Sin ese flag el contenedor no ve CUDA
+> ni NVENC por más que `nvidia-smi` ande perfecto en el host — y no se le puede agregar
+> a un distrobox ya creado: hay que borrarlo y rehacerlo. Si el proyecto toca la GPU,
+> para cómputo o para video, ponelo desde el principio.
+
+Verificá que la GPU entró **antes** de construir nada encima:
+
+```bash
+distrobox enter <proyecto> -- nvidia-smi
+```
+
+> **Para cualquier proyecto de video en esta máquina**: en NVIDIA la VAAPI de *encode*
+> no existe (el bridge es solo decode). Si el código ramifica entre VAAPI y un fallback
+> por software, hace falta una rama **NVENC** (`h264_nvenc`) o vas a terminar codificando
+> en CPU sin enterarte.
 
 ---
 
